@@ -3,19 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Breez</title>
+  <meta name="description" content="Start a trip or delivery plan with Breez.">
+  <title>Breez | What's the plan?</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
+        integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
   <link rel="stylesheet" href="/static/breez.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
+          integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
+  <script defer src="/static/home.js"></script>
 </head>
 <body>
   <header class="site-header">
-    <a class="wordmark" href="/">Breez</a>
-    <nav aria-label="Project links">
-      <a href="/docs">API docs</a>
-    </nav>
+    <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">↗</span>Breez</a>
+    <span class="guest">Guest mode</span>
   </header>
-  <main class="hero">
-    <h1>Breez is live</h1>
-    <p>Advanced Air Mobility project for Florida Poly Hackathon 2026.</p>
+  <main class="home">
+    <section class="planner" aria-labelledby="plan-title">
+      <h1 id="plan-title">What’s the <em>plan?</em></h1>
+      <div class="choices">
+        <button class="choice" type="button" data-plan="trip" aria-haspopup="dialog">
+          <span class="choice-icon" aria-hidden="true">↗</span>
+          <span><strong>Go somewhere</strong><small>Start with a destination</small></span>
+          <span class="choice-arrow" aria-hidden="true">→</span>
+        </button>
+        <button class="choice" type="button" data-plan="delivery" aria-haspopup="dialog">
+          <span class="choice-icon choice-package" aria-hidden="true"><span></span></span>
+          <span><strong>Order something</strong><small>Start with an item</small></span>
+          <span class="choice-arrow" aria-hidden="true">→</span>
+        </button>
+      </div>
+      <div class="drafts" id="drafts"></div>
+      <noscript><p>Enable JavaScript to use the planner and the aircraft map.</p></noscript>
+    </section>
+    <section class="traffic" aria-labelledby="traffic-title">
+      <div class="map" id="traffic-map" aria-label="Interactive air traffic map centered on Lakeland"></div>
+      <div class="traffic-info">
+        <h2 id="traffic-title"><span class="traffic-dot" aria-hidden="true"></span> Lakeland air traffic</h2>
+        <p id="traffic-status" role="status">Loading the aircraft map…</p>
+      </div>
+      <p class="attribution">
+        <a href="https://openfreemap.org/">OpenFreeMap</a> ·
+        <a href="https://openmaptiles.org/">© OpenMapTiles</a> ·
+        <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> ·
+        <a href="https://www.adsb.lol/docs/open-data/api">Aircraft: adsb.lol</a>
+        (<a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>)
+      </p>
+    </section>
   </main>
+  <dialog id="plan-dialog" aria-labelledby="dialog-title">
+    <form id="plan-form">
+      <div class="dialog-header">
+        <h2 id="dialog-title"></h2>
+        <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
+      </div>
+      <label for="plan-detail" id="detail-label"></label>
+      <input id="plan-detail" maxlength="120" required autofocus>
+      <p class="form-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
+      <button class="save" type="submit">Save draft</button>
+    </form>
+  </dialog>
 </body>
 </html>

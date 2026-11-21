@@ -17,8 +17,16 @@ Open http://127.0.0.1:8000 for the homepage or http://127.0.0.1:8000/docs for th
 ## Project layout
 
 - `main.py` creates the FastAPI app and registers routes and static files.
-- `app/routes.py` defines the homepage and health check. Add feature routers under `app/` as new endpoints are needed.
+- `app/routes.py` defines the homepage and health check. `app/air_traffic.py` serves the Lakeland aircraft snapshot.
 - `app/pages/` contains HTML pages and `app/static/` contains assets.
 - `requirements.txt` lists the Python dependencies.
 
 Push source changes to `main` for the palserver sync to pick up.
+
+## Homepage data and licensing
+
+Guests can browse the map and draft a trip or delivery. Drafts are held in memory on the current page. Booking and checkout will require sign-in once those flows are implemented.
+
+- [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt) uses the BSD 3-Clause license. The homepage loads a pinned build.
+- [OpenFreeMap](https://openfreemap.org/) allows commercial use of its public map service. The map credits OpenFreeMap, OpenMapTiles, and [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The underlying OpenStreetMap data is licensed under the ODbL.
+- [adsb.lol](https://www.adsb.lol/docs/open-data/api) publishes aircraft data under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Preserve attribution and observe the share-alike terms for any publicly used adaptations of the database. The unauthenticated service is best-effort and has a per-IP quota. Breez caches one snapshot for four minutes per Uvicorn worker, retains no history, and includes the upstream source in the API response. Account for shared egress and all workers when checking the quota.
