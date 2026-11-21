@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a17">
   <meta name="description" content="Start a trip or delivery plan with Breez.">
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css">
+  <link rel="stylesheet" href="/static/breez.css?v=2">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script defer src="/static/home.js"></script>
+  <script defer src="/static/home.js?v=2"></script>
 </head>
 <body>
   <header class="site-header">
@@ -32,7 +33,10 @@
           <span class="choice-arrow" aria-hidden="true">→</span>
         </button>
       </div>
-      <div class="drafts" id="drafts"></div>
+      <section class="drafts" id="drafts" aria-labelledby="draft-title" hidden>
+        <h2 id="draft-title">Your drafts</h2>
+        <ul id="draft-list"></ul>
+      </section>
       <noscript><p>Enable JavaScript to use the planner and the aircraft map.</p></noscript>
     </section>
     <section class="traffic" aria-labelledby="traffic-title">
@@ -40,6 +44,7 @@
       <div class="traffic-info">
         <h2 id="traffic-title"><span class="traffic-dot" aria-hidden="true"></span> Lakeland air traffic</h2>
         <p id="traffic-status" role="status">Loading the aircraft map…</p>
+        <button class="recenter" id="recenter-map" type="button" hidden>Recenter map</button>
       </div>
       <p class="attribution">
         <a href="https://openfreemap.org/">OpenFreeMap</a> ·

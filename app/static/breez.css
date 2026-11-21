@@ -86,7 +86,7 @@ a { color: inherit; }
 
 .choices {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .choice {
@@ -96,11 +96,12 @@ a { color: inherit; }
   gap: 1rem;
   width: 100%;
   min-height: 5rem;
-  padding: 0.85rem 1rem;
+  padding: 0.9rem 1.05rem;
   text-align: left;
   color: #f4f7f3;
   background: #1b2923;
-  border: 1px solid var(--border);
+  border: 1px solid #3b4d43;
+  box-shadow: 0 4px 14px #07100b35;
   border-radius: 0.8rem;
   transition: background-color 150ms, border-color 150ms;
 }
@@ -140,7 +141,8 @@ a { color: inherit; }
 .choice strong, .choice small { display: block; }
 .choice strong { font-size: 1.16rem; line-height: 1.2; }
 .choice small { margin-top: 0.25rem; color: var(--muted); font-size: 0.85rem; }
-.choice-arrow { color: var(--accent); font-size: 1.3rem; }
+.choice-arrow { color: var(--accent); font-size: 1.3rem; transition: transform 150ms; }
+.choice:hover .choice-arrow { transform: translateX(0.2rem); }
 
 .traffic {
   position: absolute;
@@ -162,7 +164,7 @@ a { color: inherit; }
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(90deg, #101715 2%, #101715 16%, #101715e8 29%, #10171550 52%, transparent 71%);
+  background: linear-gradient(90deg, #101715 2%, #101715 16%, #101715d0 29%, #10171538 51%, transparent 70%);
   pointer-events: none;
 }
 
@@ -176,10 +178,13 @@ a { color: inherit; }
   border-radius: 0.6rem;
 }
 
-.traffic-info { top: 1.2rem; }
+.traffic-info { top: 1.2rem; min-width: 13.8rem; }
 .traffic-info h2 { margin: 0; font-size: 0.9rem; }
 .traffic-info p { margin: 0.35rem 0 0; color: #c2d1c7; font-size: 0.78rem; }
-.traffic-dot { display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.25rem; border-radius: 50%; background: var(--accent); }
+.traffic-dot { display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.25rem; border-radius: 50%; background: #84958a; }
+.traffic-info[data-available] .traffic-dot { background: var(--accent); }
+.recenter { margin-top: 0.5rem; padding: 0.25rem 0; border: 0; background: transparent; color: var(--accent); font-size: 0.78rem; }
+.recenter:hover { text-decoration: underline; }
 .attribution { bottom: 0.85rem; margin: 0; max-width: calc(100% - 2.4rem); color: #c2d1c7; font-size: 0.72rem; line-height: 1.6; }
 .map .maplibregl-ctrl-bottom-right { bottom: 3.4rem; right: 0.6rem; z-index: 2; }
 
@@ -198,8 +203,9 @@ a { color: inherit; }
 
 .aircraft-stationary { width: 8px; height: 8px; clip-path: circle(); }
 
-.drafts { display: grid; gap: 0.5rem; }
-.drafts:not(:empty) { margin-top: 0.85rem; }
+.drafts { margin-top: 1.1rem; }
+.drafts h2 { margin: 0 0 0.45rem; color: var(--muted); font-size: 0.82rem; font-weight: 600; }
+.drafts ul { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
 .draft {
   display: flex;
   justify-content: space-between;
@@ -214,6 +220,7 @@ a { color: inherit; }
   overflow-wrap: anywhere;
 }
 
+.draft-actions { display: flex; gap: 0.5rem; }
 .draft button, .close {
   padding: 0.25rem;
   border: 0;
@@ -252,5 +259,5 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .choice { transition: none; }
+  .choice, .choice-arrow { transition: none; }
 }

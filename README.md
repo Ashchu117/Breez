@@ -25,7 +25,7 @@ Push source changes to `main` for the palserver sync to pick up.
 
 ## Homepage data and licensing
 
-Guests can browse the map and draft a trip or delivery. Drafts are held in memory on the current page. Booking and checkout will require sign-in once those flows are implemented.
+Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. Booking and checkout will require sign-in once those flows are implemented.
 
 - [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt) uses the BSD 3-Clause license. The homepage loads a pinned build.
 - [OpenFreeMap](https://openfreemap.org/) allows commercial use of its public map service. The map credits OpenFreeMap, OpenMapTiles, and [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The underlying OpenStreetMap data is licensed under the ODbL.

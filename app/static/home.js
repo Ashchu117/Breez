@@ -2,11 +2,33 @@ const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
   delivery: { title: "Plan a delivery", label: "What would you like to order?", placeholder: "Enter an item", summary: "Delivery draft" },
 };
-const drafts = new Map();
+const draftKey = "breez.planDrafts";
+const drafts = loadDrafts();
 const dialog = document.querySelector("#plan-dialog");
 const planInput = document.querySelector("#plan-detail");
-const draftList = document.querySelector("#drafts");
+const draftSection = document.querySelector("#drafts");
+const draftList = document.querySelector("#draft-list");
 let selectedPlan;
+
+function loadDrafts() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(draftKey) ?? "{}");
+    return new Map(Object.keys(planTypes).flatMap((type) => {
+      const detail = saved?.[type];
+      return typeof detail === "string" && detail.trim() && detail.length <= 120 ? [[type, detail]] : [];
+    }));
+  } catch {
+    return new Map();
+  }
+}
+
+function persistDrafts() {
+  try {
+    sessionStorage.setItem(draftKey, JSON.stringify(Object.fromEntries(drafts)));
+  } catch {
+    // Drafts remain available until the page closes if tab storage is disabled.
+  }
+}
 
 function openPlan(type) {
   selectedPlan = type;
@@ -20,9 +42,10 @@ function openPlan(type) {
 }
 
 function renderDrafts() {
+  draftSection.hidden = drafts.size === 0;
   draftList.replaceChildren();
   for (const [type, detail] of drafts) {
-    const row = document.createElement("div");
+    const row = document.createElement("li");
     row.className = "draft";
     const description = document.createElement("span");
     description.textContent = `${planTypes[type].summary}: ${detail}`;
@@ -31,7 +54,20 @@ function renderDrafts() {
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", `Edit ${planTypes[type].summary.toLowerCase()}`);
     edit.addEventListener("click", () => openPlan(type));
-    row.append(description, edit);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${planTypes[type].summary.toLowerCase()}`);
+    remove.addEventListener("click", () => {
+      drafts.delete(type);
+      persistDrafts();
+      renderDrafts();
+      document.querySelector(`[data-plan="${type}"]`).focus();
+    });
+    const actions = document.createElement("div");
+    actions.className = "draft-actions";
+    actions.append(edit, remove);
+    row.append(description, actions);
     draftList.append(row);
   }
 }
@@ -51,12 +87,18 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     return;
   }
   drafts.set(selectedPlan, detail);
+  persistDrafts();
   renderDrafts();
   dialog.close();
   document.querySelector(`[data-plan="${selectedPlan}"]`).focus();
 });
 
+renderDrafts();
+
 const trafficStatus = document.querySelector("#traffic-status");
+const trafficPanel = document.querySelector(".traffic-info");
+const recenter = document.querySelector("#recenter-map");
+const homeView = { center: [-81.85, 28.15], zoom: 8.5 };
 const MAX_SNAPSHOT_AGE = 6 * 60 * 1000;
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   timeZone: "America/New_York",
@@ -76,8 +118,7 @@ function startMap() {
     map = new maplibregl.Map({
       container: "traffic-map",
       style: "https://tiles.openfreemap.org/styles/dark",
-      center: [-81.85, 28.15],
-      zoom: 8.5,
+      ...homeView,
       minZoom: 6,
       maxZoom: 15,
       maxBounds: [[-84.4, 26.2], [-79.3, 30]],
@@ -120,9 +161,11 @@ function startMap() {
           rotationAlignment: "map",
         }).setLngLat([aircraft.longitude, aircraft.latitude]).addTo(map));
       }
+      trafficPanel.dataset.available = "true";
       trafficStatus.textContent = `${markers.length} aircraft in range · ${timeFormatter.format(snapshot.observed_at)}`;
     } catch {
       clearMarkers();
+      delete trafficPanel.dataset.available;
       trafficStatus.textContent = "Aircraft data unavailable";
     } finally {
       pending = false;
@@ -135,6 +178,8 @@ function startMap() {
   });
   map.once("load", () => {
     ready = true;
+    recenter.hidden = false;
+    recenter.addEventListener("click", () => map.easeTo(homeView));
     refreshTraffic();
     window.setInterval(refreshTraffic, 60_000);
     document.addEventListener("visibilitychange", refreshTraffic);
