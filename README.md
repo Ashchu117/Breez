@@ -23,6 +23,12 @@ Open http://127.0.0.1:8000 for the homepage or http://127.0.0.1:8000/docs for th
 
 Push source changes to `main` for the palserver sync to pick up.
 
+## Trip search and location
+
+Breez asks for a starting point on page load. Device location requires HTTPS or localhost. Visitors can also search for a starting point or continue without distances. The page calculates straight-line miles locally and sends typed place queries to Photon with a fixed Central Florida bias. It keeps device coordinates in memory for the page.
+
+The [Photon demo](https://github.com/komoot/photon#demo-server) is for light usage. Photon is Apache-2.0; its OpenStreetMap data retains ODbL attribution. Results preserve distinct branches. The two [LoveBird locations](https://www.lovebirdeats.com/) are provided locally because the demo index only returns the Lakeland branch. The Winter Haven coordinate is a [U.S. Census Geocoder](https://geocoding.geo.census.gov/geocoder/) address estimate.
+
 ## Homepage data and licensing
 
 Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. Booking and checkout will require sign-in once those flows are implemented.

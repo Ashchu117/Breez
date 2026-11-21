@@ -1,3 +1,5 @@
+import { createPlaceSearch, isPlace } from "./places.js?v=3";
+
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
   delivery: { title: "Plan a delivery", label: "What would you like to order?", placeholder: "Enter an item", summary: "Delivery draft" },
@@ -9,13 +11,25 @@ const planInput = document.querySelector("#plan-detail");
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 let selectedPlan;
+let selectedDestination;
+let startingPoint = null;
+const tripSearch = createPlaceSearch({
+  input: planInput,
+  list: document.querySelector("#destination-results"),
+  status: document.querySelector("#destination-status"),
+  getOrigin: () => startingPoint,
+  onSelect: (place) => { selectedDestination = place; },
+  onType: () => { selectedDestination = null; },
+});
 
 function loadDrafts() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(draftKey) ?? "{}");
     return new Map(Object.keys(planTypes).flatMap((type) => {
-      const detail = saved?.[type];
-      return typeof detail === "string" && detail.trim() && detail.length <= 120 ? [[type, detail]] : [];
+      const value = saved?.[type];
+      const detail = typeof value === "string" ? value : value?.detail;
+      if (typeof detail !== "string" || !detail.trim() || detail.length > 240) return [];
+      return [[type, { detail, place: isPlace(value?.place) ? value.place : null }]];
     }));
   } catch {
     return new Map();
@@ -36,19 +50,31 @@ function openPlan(type) {
   document.querySelector("#dialog-title").textContent = plan.title;
   document.querySelector("#detail-label").textContent = plan.label;
   planInput.placeholder = plan.placeholder;
-  planInput.value = drafts.get(type) ?? "";
+  const draft = drafts.get(type);
+  selectedDestination = draft?.place ?? null;
+  planInput.value = draft?.detail ?? "";
   planInput.setCustomValidity("");
+  tripSearch.setEnabled(type === "trip");
+  document.querySelector("#trip-search").hidden = type !== "trip";
+  document.querySelector("#distance-note").textContent = startingPoint
+    ? "Distances are straight-line estimates." : "Set a starting point to see distances.";
+  document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
   dialog.showModal();
 }
 
 function renderDrafts() {
   draftSection.hidden = drafts.size === 0;
   draftList.replaceChildren();
-  for (const [type, detail] of drafts) {
+  for (const [type, draft] of drafts) {
     const row = document.createElement("li");
     row.className = "draft";
     const description = document.createElement("span");
-    description.textContent = `${planTypes[type].summary}: ${detail}`;
+    description.textContent = `${planTypes[type].summary}: ${draft.detail}`;
+    if (draft.place?.address) {
+      const address = document.createElement("small");
+      address.textContent = draft.place.address;
+      description.append(address);
+    }
     const edit = document.createElement("button");
     edit.type = "button";
     edit.textContent = "Edit";
@@ -77,6 +103,7 @@ for (const button of document.querySelectorAll("[data-plan]")) {
 }
 
 document.querySelector("#close-dialog").addEventListener("click", () => dialog.close());
+dialog.addEventListener("close", tripSearch.reset);
 planInput.addEventListener("input", () => planInput.setCustomValidity(""));
 document.querySelector("#plan-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -86,7 +113,7 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     planInput.reportValidity();
     return;
   }
-  drafts.set(selectedPlan, detail);
+  drafts.set(selectedPlan, { detail, place: selectedPlan === "trip" ? selectedDestination : null });
   persistDrafts();
   renderDrafts();
   dialog.close();
@@ -186,4 +213,62 @@ function startMap() {
   });
 }
 
-startMap();
+const locationDialog = document.querySelector("#location-dialog");
+const originInput = document.querySelector("#origin-search");
+const locationNote = document.querySelector("#location-note");
+const locationButton = document.querySelector("#change-origin");
+const useLocation = document.querySelector("#use-location");
+const canLocate = window.isSecureContext && Boolean(navigator.geolocation);
+let locationAttempt = 0;
+let mapStarted = false;
+
+function setStartingPoint(point) {
+  startingPoint = point;
+  locationButton.textContent = point?.name ?? "Set starting point";
+  locationDialog.close();
+}
+
+const originSearch = createPlaceSearch({
+  input: originInput,
+  list: document.querySelector("#origin-results"),
+  status: document.querySelector("#origin-status"),
+  onSelect: setStartingPoint,
+});
+
+function askForLocation() {
+  originInput.value = "";
+  originSearch.reset();
+  useLocation.disabled = !canLocate;
+  locationNote.textContent = canLocate ? "" : "Device location requires HTTPS. You can search below.";
+  locationDialog.showModal();
+  if (!canLocate) originInput.focus();
+}
+
+useLocation.addEventListener("click", () => {
+  const attempt = ++locationAttempt;
+  useLocation.disabled = true;
+  locationNote.textContent = "Getting your location…";
+  navigator.geolocation.getCurrentPosition(({ coords }) => {
+    if (attempt !== locationAttempt || !locationDialog.open) return;
+    setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude });
+  }, (error) => {
+    if (attempt !== locationAttempt || !locationDialog.open) return;
+    useLocation.disabled = false;
+    locationNote.textContent = error.code === 1
+      ? "Location permission was declined. Search for a starting point below."
+      : "Couldn’t get your location. Search for a starting point below.";
+  }, { timeout: 10_000, maximumAge: 60_000 });
+});
+
+locationButton.addEventListener("click", askForLocation);
+document.querySelector("#skip-location").addEventListener("click", () => setStartingPoint(null));
+locationDialog.addEventListener("close", () => {
+  locationAttempt++;
+  originSearch.reset();
+  if (!mapStarted) {
+    mapStarted = true;
+    startMap();
+  }
+});
+
+askForLocation();

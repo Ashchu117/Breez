@@ -8,15 +8,15 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=2">
+  <link rel="stylesheet" href="/static/breez.css?v=3">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script defer src="/static/home.js?v=2"></script>
+  <script type="module" src="/static/home.js?v=3"></script>
 </head>
 <body>
   <header class="site-header">
     <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">↗</span>Breez</a>
-    <span class="guest">Guest mode</span>
+    <button class="location-button" id="change-origin" type="button" aria-haspopup="dialog">Set starting point</button>
   </header>
   <main class="home">
     <section class="planner" aria-labelledby="plan-title">
@@ -55,6 +55,18 @@
       </p>
     </section>
   </main>
+  <dialog id="location-dialog" aria-labelledby="location-title">
+    <h2 id="location-title">Where are you starting?</h2>
+    <p class="form-note">Set your starting point to see how far away each destination is.</p>
+    <button class="save" id="use-location" type="button" autofocus>Use my location</button>
+    <p class="form-note location-note" id="location-note" role="status"></p>
+    <label for="origin-search">Or search for a starting point</label>
+    <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">
+    <ul class="place-results" id="origin-results" role="listbox" aria-label="Starting point suggestions" hidden></ul>
+    <p class="search-status" id="origin-status" role="status"></p>
+    <button class="text-button" id="skip-location" type="button">Continue without location</button>
+    <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+  </dialog>
   <dialog id="plan-dialog" aria-labelledby="dialog-title">
     <form id="plan-form">
       <div class="dialog-header">
@@ -62,7 +74,13 @@
         <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
       </div>
       <label for="plan-detail" id="detail-label"></label>
-      <input id="plan-detail" maxlength="120" required autofocus>
+      <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
+      <div id="trip-search">
+        <ul class="place-results" id="destination-results" role="listbox" aria-label="Destination suggestions" hidden></ul>
+        <p class="search-status" id="destination-status" role="status"></p>
+        <p class="form-note distance-note" id="distance-note">Distances are straight-line estimates.</p>
+        <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+      </div>
       <p class="form-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
       <button class="save" type="submit">Save draft</button>
     </form>

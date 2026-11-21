@@ -53,10 +53,23 @@ a { color: inherit; }
   line-height: 1;
 }
 
-.guest {
-  color: var(--muted);
+.location-button, .text-button {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.7rem;
   font-size: 0.85rem;
 }
+
+.location-button {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-button:hover, .text-button:hover { background: #25382b; }
 
 .home {
   position: relative;
@@ -229,7 +242,7 @@ a { color: inherit; }
 }
 
 dialog {
-  width: min(28rem, calc(100vw - 2rem));
+  width: min(30rem, calc(100vw - 2rem));
   padding: 1.5rem;
   color: #f4f7f3;
   background: #17231d;
@@ -245,6 +258,41 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .form-note { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
 .save { margin-top: 0.2rem; padding: 0.6rem 0.9rem; color: var(--ink); background: var(--accent); border: 0; border-radius: 0.4rem; font-weight: 650; }
 .save:hover { background: #e3ffb4; }
+.save:disabled { cursor: default; opacity: 0.5; }
+#location-dialog h2 { margin: 0; font-size: 1.65rem; letter-spacing: -0.035em; }
+#location-dialog label { display: block; margin-top: 1rem; }
+#location-dialog .text-button { margin-top: 0.8rem; }
+.location-note:empty, .search-status:empty { display: none; }
+.search-status { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.83rem; }
+.distance-note, .place-credit { margin: 0.45rem 0 0; }
+.place-credit { font-size: 0.75rem; }
+.draft small { display: block; margin-top: 0.2rem; }
+
+.place-results {
+  max-height: min(13rem, 31vh);
+  overflow: auto;
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: #101a16;
+}
+
+.place-results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.36rem;
+  cursor: pointer;
+}
+
+.place-results li:hover, .place-results [aria-selected="true"] { background: #283b31; }
+.place-results strong, .place-results small { display: block; }
+.place-results strong { font-size: 0.92rem; }
+.place-results small { margin-top: 0.18rem; color: var(--muted); font-size: 0.78rem; overflow-wrap: anywhere; }
+.place-distance { align-self: center; flex-shrink: 0; color: var(--accent); font-size: 0.78rem; }
 
 @media (max-width: 760px) {
   .home { display: flex; flex-direction: column; padding: 0; min-height: auto; }
