@@ -137,6 +137,14 @@ let locationAttempt = 0;
 let pendingPlan = null;
 let locationBusy = false;
 let permissionState;
+let stopDeviceWatch;
+
+function cancelDeviceWatch() {
+  if (!stopDeviceWatch) return;
+  stopDeviceWatch();
+  stopDeviceWatch = undefined;
+  locationAttempt++;
+}
 
 function updateLocationButton() {
   useLocation.disabled = !canLocate || locationBusy || permissionState === "denied";
@@ -172,6 +180,7 @@ function setLocationBusy(busy) {
 watchLocationPermission();
 
 async function setStartingPoint(point) {
+  cancelDeviceWatch();
   const attempt = ++locationAttempt;
   setLocationBusy(true);
   locationNote.textContent = "Checking Florida coverage…";
@@ -206,6 +215,12 @@ const originSearch = createPlaceSearch({
   list: document.querySelector("#origin-results"),
   status: document.querySelector("#origin-status"),
   onSelect: setStartingPoint,
+  onType: () => {
+    if (!stopDeviceWatch) return;
+    cancelDeviceWatch();
+    setLocationBusy(false);
+    locationNote.textContent = "";
+  },
 });
 
 function askForLocation(type = null) {
@@ -220,26 +235,50 @@ function askForLocation(type = null) {
   if (useLocation.disabled) originInput.focus();
 }
 
-useLocation.addEventListener("click", () => {
+function requestDeviceLocation() {
   const attempt = ++locationAttempt;
+  const isCurrent = () => attempt === locationAttempt && locationDialog.open;
   setLocationBusy(true);
   locationNote.textContent = "Getting your location…";
-  navigator.geolocation.getCurrentPosition(({ coords }) => {
-    if (attempt !== locationAttempt || !locationDialog.open) return;
-    showPermission("granted");
-    setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude });
-  }, (error) => {
-    if (attempt !== locationAttempt || !locationDialog.open) return;
+
+  const waiting = setTimeout(() => {
+    if (isCurrent()) locationNote.textContent = "Still waiting on your device. You can search below or choose Florida Polytechnic University.";
+  }, 8_000);
+  const deadline = setTimeout(() => {
+    fail("Your device didn’t provide a location. Check device location services, or search below.");
+  }, 45_000);
+
+  let watchId;
+  stopDeviceWatch = () => {
+    clearTimeout(waiting);
+    clearTimeout(deadline);
+    if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+  };
+
+  function fail(message) {
+    if (!isCurrent()) return;
+    cancelDeviceWatch();
     setLocationBusy(false);
-    if (error.code === 1 && permissionState !== "granted") {
-      locationNote.textContent = "Location access was blocked. Check browser and device settings, or search below.";
-    } else if (error.code === 3) {
-      locationNote.textContent = "Getting your location timed out. Try again or search below.";
-    } else {
-      locationNote.textContent = "Your device couldn’t provide a location. Check that location services are on, or search below.";
-    }
-  }, { timeout: 10_000, maximumAge: 60_000 });
-});
+    locationNote.textContent = message;
+  }
+
+  try {
+    watchId = navigator.geolocation.watchPosition(({ coords }) => {
+      if (!isCurrent()) return;
+      showPermission("granted");
+      setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude });
+    }, (error) => {
+      if (!isCurrent() || error.code !== 1) return;
+      fail(permissionState === "granted"
+        ? "Your device blocked location access. Check device location services, or search below."
+        : "Location access was blocked. Check this site’s browser permission, or search below.");
+    }, { maximumAge: 5 * 60_000, enableHighAccuracy: false });
+  } catch {
+    fail("Your browser couldn’t start location lookup. Search below or choose Florida Polytechnic University.");
+  }
+}
+
+useLocation.addEventListener("click", requestDeviceLocation);
 
 locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
@@ -247,6 +286,7 @@ document.querySelector("#cancel-location").addEventListener("click", () => locat
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
 coverageDialog.addEventListener("close", () => askForLocation(pendingPlan));
 locationDialog.addEventListener("close", () => {
+  cancelDeviceWatch();
   locationAttempt++;
   setLocationBusy(false);
   originSearch.reset();
