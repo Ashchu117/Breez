@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 MissionField = Literal["origin", "destination", "cargo", "timing"]
@@ -75,6 +75,20 @@ class RouteRequest(Contract):
     timing: DeliveryTiming
     confirmed: Literal[True]
 
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def require_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("Confirm the mission before simulating a route")
+        return value
+
+
+class SimulatedRestriction(Contract):
+    id: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=120)
+    center: Coordinates
+    radius_miles: float = Field(gt=0, allow_inf_nan=False)
+
 
 class RouteFinding(Contract):
     code: Literal["SIMULATED_RESTRICTION"]
@@ -90,6 +104,7 @@ class RouteResponse(Contract):
     eta_minutes: float | None = Field(gt=0, allow_inf_nan=False)
     assumed_speed_mph: float = Field(gt=0, allow_inf_nan=False)
     findings: list[RouteFinding]
+    restrictions: list[SimulatedRestriction]
 
     @model_validator(mode="after")
     def validate_simulation_result(self):
@@ -100,4 +115,7 @@ class RouteResponse(Contract):
             raise ValueError("A passing route requires an ETA and has no blocking findings")
         if any(finding.segment_index >= len(self.points) - 1 for finding in self.findings):
             raise ValueError("A finding must reference an existing route segment")
+        zone_ids = {zone.id for zone in self.restrictions}
+        if any(finding.zone_id not in zone_ids for finding in self.findings):
+            raise ValueError("A finding must reference an existing simulated restriction")
         return self

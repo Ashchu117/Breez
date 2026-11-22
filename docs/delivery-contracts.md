@@ -14,7 +14,7 @@ The canonical models are in [app/mission_contracts.py](../app/mission_contracts.
 | --- | --- | --- |
 | Concierge from the browser | Current message and previous extracted fields, if any | Extracted fields for the next turn. The browser asks for missing details and resolves the pickup when the user selects a branch. |
 | Model extraction | A request and the relevant prior answers | Pickup and drop-off names, cargo lines, and timing. Every key is present. Unknown values are `null`. |
-| Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, and structured blocking findings |
+| Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, simulated restriction geometry, and structured blocking findings |
 
 A user request like “Pick up two Food item 1s with Custom option 2 from Wendy’s for Florida Poly” could produce this extraction:
 
@@ -34,6 +34,14 @@ Breez’s place lookup resolves coordinates. If multiple branches match, the res
 The existing order draft already provides `origin`, `destination`, `items`, and `timing`. The browser will map `items` to `cargo` and send each selected place's `name`, `address`, `lat`, and `lon`. The browser retains the chain and menu metadata. A device drop-off deliberately omitted from saved tab storage must be chosen again. Use public places for the judged demo and keep device coordinates out of model prompts.
 
 The route engine owns the simulated findings, ETA, and status. A blocked result has a reason code, a simulated zone ID, and the zero-based index of the affected segment between consecutive map points. The model’s briefing consumes the result as data. The human review action is separate from the engine’s status. Both passing and blocked scenarios are simulations.
+
+## Run a route simulation
+
+`POST /api/route-simulation` accepts the `RouteRequest` schema. Use `confirmed: true` and supply Florida pickup and drop-off coordinates, cargo, and one of the timing options. The endpoint returns HTTP 422 for a missing field, an unconfirmed mission, a location outside Florida, or identical pickup and drop-off coordinates.
+
+The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. The only constraint is a fictional circle in Lakeland. The engine checks whether the segment touches or enters the circle in a local approximation, including at the endpoints. A blocked route has no ETA. The response includes the zone's center and radius for display and uses zero-based indexes to identify affected segments.
+
+In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) passes the simulation. A pickup near 5740 Highway 98 North (`28.12009, -81.97385`) is blocked by the simulated zone. Each coordinate pair is latitude, longitude. Both examples are planning simulations.
 
 ## Enable the sponsored concierge on palserver
 
