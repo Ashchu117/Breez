@@ -1,7 +1,7 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=6";
+import { createPlaceSearch, isPlace } from "./places.js?v=7";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=5";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=4";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=5";
 import { simulateMission } from "./simulation.js?v=1";
 
 const planTypes = {
@@ -235,6 +235,7 @@ function showRoute(mission, result) {
   finding.hidden = !zoneNames.length;
   finding.textContent = zoneNames.length ? "The dashed segment intersects " + zoneNames.join(", ") + "." : "";
   document.querySelector("#route-line-label").textContent = blocked ? "Blocked segment" : "Candidate route";
+  document.querySelector("#route-zone-key").hidden = !result.restrictions.length;
   document.querySelector("#route-title").focus();
   updateMap(mission.origin, mission.destination, result, labels);
 }

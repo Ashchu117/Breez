@@ -41,9 +41,9 @@ The route engine owns the simulated findings, ETA, and status. A blocked result 
 
 The trip planner uses the same endpoint with `mode: "trip"`, `confirmed: true`, and `origin` and `destination` objects containing `lat` and `lon`. Trip previews use coordinates only. Cargo and timing apply to delivery requests.
 
-The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. The only constraint is a fictional circle in Lakeland. The engine checks whether the segment touches or enters the circle in a local approximation, including at the endpoints. A blocked route has no ETA. The response includes the zone's center and radius for display and uses zero-based indexes to identify affected segments.
+The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. With no restrictions active, valid trips and deliveries show the direct line and estimated flight time. The response also supports simulated restriction centers, radii, and zero-based segment indexes when restrictions are configured for a scenario.
 
-In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) passes the simulation. A pickup near 5740 Highway 98 North (`28.12009, -81.97385`) is blocked by the simulated zone. Each coordinate pair is latitude, longitude. Both examples are planning simulations.
+In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) gives a preview. Each coordinate pair is latitude, longitude.
 
 ## Enable the sponsored concierge on palserver
 

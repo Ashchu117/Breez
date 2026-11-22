@@ -1,4 +1,4 @@
-"""Simulate a direct route candidate against a fictional restriction."""
+"""Simulate a direct route candidate, with optional fictional restrictions."""
 
 from math import asin, cos, hypot, radians, sin, sqrt
 
@@ -19,12 +19,6 @@ from app.mission_contracts import (
 router = APIRouter(prefix="/api")
 EARTH_RADIUS_MILES = 3958.76
 DEMO_SPEED_MPH = 40.0
-DEMO_RESTRICTION = SimulatedRestriction(
-    id="lakeland-demo-zone",
-    name="Lakeland demo restriction",
-    center=Coordinates(lat=28.134, lon=-81.912),
-    radius_miles=1.25,
-)
 
 
 def distance_miles(start: Coordinates, end: Coordinates) -> float:
@@ -52,7 +46,9 @@ def intersects_restriction(
     return hypot(start_x + nearest * dx, start_y + nearest * dy) <= zone.radius_miles
 
 
-def simulate_route(mission: ConfirmedRoute) -> RouteResponse:
+def simulate_route(
+    mission: ConfirmedRoute, restrictions: tuple[SimulatedRestriction, ...] = ()
+) -> RouteResponse:
     start = Coordinates(lat=mission.origin.lat, lon=mission.origin.lon)
     end = Coordinates(lat=mission.destination.lat, lon=mission.destination.lon)
     distance = distance_miles(start, end)
@@ -61,18 +57,20 @@ def simulate_route(mission: ConfirmedRoute) -> RouteResponse:
     if not is_in_florida(start) or not is_in_florida(end):
         raise ValueError("Choose start and end locations in Florida.")
 
-    blocked = intersects_restriction(start, end, DEMO_RESTRICTION)
+    findings = [
+        RouteFinding(code="SIMULATED_RESTRICTION", zone_id=zone.id, segment_index=0)
+        for zone in restrictions
+        if intersects_restriction(start, end, zone)
+    ]
     return RouteResponse(
         simulation=True,
-        status="blocked" if blocked else "passes_demo_checks",
+        status="blocked" if findings else "passes_demo_checks",
         points=[start, end],
         distance_miles=distance,
-        eta_minutes=None if blocked else distance / DEMO_SPEED_MPH * 60,
+        eta_minutes=None if findings else distance / DEMO_SPEED_MPH * 60,
         assumed_speed_mph=DEMO_SPEED_MPH,
-        findings=[
-            RouteFinding(code="SIMULATED_RESTRICTION", zone_id=DEMO_RESTRICTION.id, segment_index=0)
-        ] if blocked else [],
-        restrictions=[DEMO_RESTRICTION],
+        findings=findings,
+        restrictions=list(restrictions),
     )
 
 

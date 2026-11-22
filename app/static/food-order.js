@@ -1,5 +1,5 @@
-import { distanceLabel, isPlace, normalized } from "./places.js?v=6";
-import { chains, restaurantLocations } from "./restaurants.js?v=1";
+import { distanceLabel, isPlace, normalized } from "./places.js?v=7";
+import { chains, restaurantLocations } from "./restaurants.js?v=2";
 import { simulateMission } from "./simulation.js?v=1";
 
 const menu = ["Food item 1", "Food item 2", "Food item 3"];

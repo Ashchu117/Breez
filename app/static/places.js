@@ -45,7 +45,7 @@ function readPlace(feature, houseNumber) {
   const number = String(props.housenumber ?? "");
   const street = [number, props.street].filter(Boolean).join(" ");
   const placeName = houseNumber ? street : props.name || street || props.city || props.district;
-  const name = houseNumber && number.toLowerCase() !== houseNumber.toLowerCase() ? null : placeName;
+  const name = houseNumber && !number.toLowerCase().startsWith(houseNumber.toLowerCase()) ? null : placeName;
   const area = props.city || props.town || props.district || props.county;
   const address = [...new Set([street, area, props.state].filter((value) => value && value !== name))].join(", ");
   return {
@@ -104,39 +104,173 @@ async function censusPlaces(query, signal) {
   return (await response.json()).places;
 }
 
-async function searchPlaces(query, signal, origin) {
+const streetAbbreviations = {
+  n: "north", s: "south", e: "east", w: "west",
+  ne: "northeast", nw: "northwest", se: "southeast", sw: "southwest",
+  ave: "avenue", blvd: "boulevard", ct: "court", dr: "drive", hwy: "highway",
+  ln: "lane", pkwy: "parkway", pl: "place", rd: "road", st: "street",
+  ter: "terrace", trl: "trail",
+};
+
+function streetKey(value, expandLast = true) {
+  const text = value.toLowerCase().replace(/\b(north|south)\s+(east|west)\b/g, "$1$2");
+  const words = text.match(/[a-z]+|[0-9]+/g) ?? [];
+  return words.map((word, index) => {
+    const expand = expandLast || index < words.length - 1;
+    return expand && Object.hasOwn(streetAbbreviations, word) ? streetAbbreviations[word] : word;
+  }).join("");
+}
+
+function matchesStreetText(query, street) {
+  const text = query.split(",")[0];
+  const typed = streetKey(text);
+  const full = streetKey(street);
+  if (!typed || !full) return false;
+  return full.startsWith(typed) || full.startsWith(streetKey(text, false)) || (
+    ROAD_ENDING.test(query) && typed.startsWith(full) && full.length >= 5
+  );
+}
+
+function deerfieldCompletion(fragment) {
+  const typed = streetKey(fragment, false);
+  if (deerfieldPattern.test(fragment)) {
+    return /^little/i.test(fragment) ? "Little Harbor Way" : "NE 11th Way";
+  }
+  if (typed.length < 6) return null;
+  if (streetKey("Little Harbor Way").startsWith(typed)) return "Little Harbor Way";
+  return streetKey("NE 11th Way").startsWith(typed) && /\d/.test(typed) ? "NE 11th Way" : null;
+}
+
+function combineAddressSuggestions(addresses, completions) {
+  const remaining = completions.filter((completion) => !addresses.some((place) =>
+    streetKey(completion.name) === streetKey(place.name) &&
+    (!completion.area || normalized(completion.area) === normalized(place.area ?? ""))
+  ));
+  return [...addresses, ...remaining];
+}
+
+function nameAddress(place, alias) {
+  if (!alias || !place.houseNumber || !isDeerfieldStreet(place)) return place;
+  return {
+    ...place,
+    name: place.houseNumber + " " + alias,
+    address: place.address + " · Also " + (alias === "Little Harbor Way" ? "NE 11th Way" : "Little Harbor Way"),
+  };
+}
+
+async function censusRoads(fragment, bias, signal) {
+  const prefix = fragment.split(",")[0].trim().toUpperCase();
+  if (prefix.length < 4 || !/^[\p{L}\p{N} '.-]+$/u.test(prefix)) return [];
+  const abbreviated = prefix.replace(/^(NORTH|SOUTH|EAST|WEST)(?= )/, (word) => word[0]);
+  const where = [...new Set([prefix, abbreviated])]
+    .map((term) => "UPPER(NAME) LIKE '" + term.replaceAll("'", "''") + "%'").join(" OR ");
+  const nearby = [bias.lon - 0.65, bias.lat - 0.65, bias.lon + 0.65, bias.lat + 0.65];
+  for (const bounds of [nearby, floridaBounds]) {
+    if (signal.aborted) return [];
+    const url = new URL("https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query");
+    url.search = new URLSearchParams({
+      f: "json", where, geometry: bounds.join(","), geometryType: "esriGeometryEnvelope",
+      inSR: "4326", outSR: "4326", outFields: "NAME", resultRecordCount: "24",
+    });
+    const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(2400)]);
+    const response = await fetch(url, { referrerPolicy: "no-referrer", signal: requestSignal });
+    if (!response.ok) throw new Error("Census street lookup unavailable");
+    const { features } = await response.json();
+    if (!Array.isArray(features)) throw new Error("Census street lookup unavailable");
+    const streets = features.flatMap(({ attributes, geometry }) => {
+      const [lon, lat] = geometry?.paths?.[0]?.[0] ?? [];
+      return [{ name: attributes?.NAME, address: "Florida", lat, lon, kind: "street" }];
+    }).filter(isPlace);
+    const florida = await Promise.all(streets.map(isInFlorida));
+    const unique = new Map(streets.filter((_, index) => florida[index])
+      .map((place) => [streetKey(place.name), place]));
+    if (unique.size) return [...unique.values()];
+  }
+  return [];
+}
+
+async function matchingStreetCandidates(fragment, bias, signal) {
+  try {
+    const roads = await censusRoads(fragment, bias, signal);
+    if (roads.length) return roads;
+  } catch {
+    if (signal.aborted) return [];
+  }
+  return photonPlaces(fragment, bias, undefined, signal, { layer: "street" });
+}
+
+async function streetCompletions(fragment, number, bias, signal, alias) {
+  const candidates = alias
+    ? [{ ...deerfieldStreet, name: alias }]
+    : await matchingStreetCandidates(fragment, bias, signal);
+  const streets = mergePlaces(candidates.filter((place) => isPlace(place) && place.kind === "street"
+    && (alias || matchesStreetText(fragment, place.name))));
+  const withinFlorida = await Promise.all(streets.map(isInFlorida));
+  return streets.filter((_, index) => withinFlorida[index]).map((place) => {
+    const area = place.area === place.name ? "" : place.area;
+    const name = number + " " + place.name;
+    return {
+      ...place,
+      name,
+      street: place.name,
+      kind: "completion",
+      searchQuery: [name, area, "FL"].filter(Boolean).join(", "),
+      censusQuery: [alias ? number + " NE 11th Way" : name, area, "FL"].filter(Boolean).join(", "),
+    };
+  });
+}
+
+async function searchPlaces(query, signal, origin, preview) {
   const bias = regionalPoint(origin ?? floridaPoly);
   const key = [bias.lat, bias.lon, query.toLowerCase()].join(":");
   if (cache.has(key)) return { places: cache.get(key), partial: false };
 
   const address = query.match(NUMBERED_ADDRESS);
-  const alias = deerfieldPattern.test(address?.[2] ?? query);
-  const usesLittleHarbor = /^little harbor way/i.test(address?.[2] ?? "");
+  const fragment = address?.[2] ?? query;
+  const alias = deerfieldCompletion(fragment);
+  const usesLittleHarbor = alias === "Little Harbor Way";
   const known = address ? [] : localPlaces.filter((place) => normalized(place.name).startsWith(normalized(query)));
   if (alias && !address) known.unshift(deerfieldStreet);
 
   const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(7000)]);
   const lookups = [photonPlaces(query, bias, address?.[1], requestSignal)];
-  if (address && ROAD_ENDING.test(address[2])) {
+  const completeStreet = address && ROAD_ENDING.test(fragment);
+  let completions = [];
+  if (completeStreet) {
     if (alias) lookups.push(censusPlaces(address[1] + " NE 11th Way, Deerfield Beach, FL", requestSignal));
-    if (!alias || usesLittleHarbor) {
-      lookups.push(censusPlaces(query, requestSignal));
-    }
+    if (!alias || usesLittleHarbor) lookups.push(censusPlaces(query, requestSignal));
+  } else if (address && normalized(fragment).length >= 3) {
+    lookups.push((async () => {
+      completions = await streetCompletions(fragment, address[1], bias, requestSignal, alias);
+      if (signal.aborted || !completions.length) return [];
+      preview(completions);
+      const results = await Promise.allSettled(completions.slice(0, 2).map(async (place) => {
+        const estimates = await censusPlaces(place.censusQuery, requestSignal);
+        return estimates.filter((estimate) => (
+          streetKey(estimate.street ?? "") === streetKey(place.street) ||
+          alias && isDeerfieldStreet(estimate)
+        ) && (!place.area || normalized(estimate.area ?? "") === normalized(place.area)));
+      }));
+      const estimates = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+      const florida = await Promise.all(estimates.map(isInFlorida));
+      const verified = estimates.filter((_, index) => florida[index]).map((place) => nameAddress(place, alias));
+      if (verified.length && !signal.aborted) preview(mergePlaces(combineAddressSuggestions(verified, completions)));
+      return estimates;
+    })());
   }
 
   const outcomes = await Promise.allSettled(lookups);
   const remote = outcomes.flatMap((outcome) => outcome.status === "fulfilled" ? outcome.value : []).filter(isPlace);
   const withinFlorida = await Promise.all(remote.map(isInFlorida));
-  const matched = remote.filter((place, index) => withinFlorida[index] && (address || !alias || !isDeerfieldStreet(place)));
-  const named = matched.map((place) => place.houseNumber && isDeerfieldStreet(place) ? {
-    ...place,
-    name: place.houseNumber + " " + (usesLittleHarbor ? "Little Harbor Way" : "NE 11th Way"),
-    address: place.address + " · Also " + (usesLittleHarbor ? "NE 11th Way" : "Little Harbor Way"),
-  } : place);
-
-  const places = mergePlaces([...known, ...named]);
+  const matched = remote.filter((place, index) => {
+    if (!withinFlorida[index]) return false;
+    if (!address) return !alias || !isDeerfieldStreet(place);
+    return (alias && isDeerfieldStreet(place)) || matchesStreetText(fragment, place.street ?? "");
+  });
+  const named = matched.map((place) => nameAddress(place, alias));
+  const places = mergePlaces([...known, ...combineAddressSuggestions(named, completions)]);
   const partial = outcomes.some((outcome) => outcome.status === "rejected");
-  if (!partial && !signal.aborted) {
+  if (!partial && !places.some((place) => place.kind === "completion") && !signal.aborted) {
     if (cache.size >= 40) cache.delete(cache.keys().next().value);
     cache.set(key, places);
   }
@@ -167,12 +301,19 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
   }
 
   function placeDescription(place) {
-    return [place.address, place.kind === "street" ? "Street" : place.kind === "estimate" ? "Estimated address" : ""].filter(Boolean).join(" · ");
+    const kind = { street: "Street", estimate: "Estimated address", completion: "Complete address search" }[place.kind];
+    return [place.address, kind].filter(Boolean).join(" · ");
   }
 
   function choose(index) {
     const place = matches[index];
     reset();
+    if (place.kind === "completion") {
+      input.value = place.searchQuery;
+      input.dispatchEvent(new Event("input"));
+      input.focus();
+      return;
+    }
     input.value = place.name;
     onSelect(place);
     status.textContent = [placeDescription(place), getOrigin() && distanceLabel(getOrigin(), place)].filter(Boolean).join(" · ");
@@ -180,6 +321,7 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
   }
 
   function showResults(places) {
+    clearResults();
     matches = places;
     const origin = getOrigin();
     for (const [index, place] of places.entries()) {
@@ -197,7 +339,7 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
         details.append(address);
       }
       option.append(details);
-      if (origin) {
+      if (origin && place.kind !== "completion") {
         const distance = document.createElement("span");
         distance.className = "place-distance";
         distance.textContent = distanceLabel(origin, place);
@@ -223,7 +365,13 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
     timer = setTimeout(async () => {
       status.textContent = "Searching places…";
       try {
-        const { places, partial } = await searchPlaces(query, controller.signal, getOrigin());
+        const { places, partial } = await searchPlaces(query, controller.signal, getOrigin(), (completions) => {
+          if (!controller.signal.aborted) {
+            showResults(completions);
+            status.textContent = completions.some((place) => place.kind === "completion")
+              ? "Checking matching street addresses…" : completions.length + " suggestions";
+          }
+        });
         if (controller.signal.aborted) return;
         showResults(places);
         const noResults = NUMBERED_ADDRESS.test(query)

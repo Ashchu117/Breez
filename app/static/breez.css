@@ -377,6 +377,7 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-details dd { margin: 0.2rem 0 0; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
 .route-legend { display: flex; flex-wrap: wrap; gap: 0.55rem 1rem; margin-top: 1.1rem; color: var(--muted); font-size: 0.78rem; }
 .route-legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.route-legend > span[hidden] { display: none; }
 .route-legend i { display: inline-block; width: 0.85rem; height: 0.75rem; border: 1px dashed #ffad83; border-radius: 0.2rem; background: #ffad8333; }
 #route-line-key { width: 1.2rem; height: 0; border: 0; border-top: 3px solid #78ead5; border-radius: 0; }
 .route-summary[data-status="blocked"] #route-line-key { border-top: 3px dashed #ffad83; }

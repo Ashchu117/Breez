@@ -2,8 +2,16 @@ from unittest import TestCase
 
 from pydantic import ValidationError
 
-from app.mission_contracts import RouteRequest, TripRouteRequest
-from app.route_simulation import DEMO_RESTRICTION, simulate_route
+from app.mission_contracts import Coordinates, RouteRequest, SimulatedRestriction, TripRouteRequest
+from app.route_simulation import simulate_route
+
+
+DEMO_RESTRICTION = SimulatedRestriction(
+    id="lakeland-demo-zone",
+    name="Lakeland demo restriction",
+    center=Coordinates(lat=28.134, lon=-81.912),
+    radius_miles=1.25,
+)
 
 
 class RouteSimulationTests(TestCase):
@@ -35,7 +43,7 @@ class RouteSimulationTests(TestCase):
         self.assertAlmostEqual(result.distance_miles, 12.58, places=1)
         self.assertAlmostEqual(result.eta_minutes, result.distance_miles * 60 / result.assumed_speed_mph)
         self.assertEqual(result.findings, [])
-        self.assertEqual(result.restrictions, [DEMO_RESTRICTION])
+        self.assertEqual(result.restrictions, [])
 
     def test_blocked_route_reports_segment_without_eta(self):
         mission = self.mission(origin={
@@ -44,7 +52,8 @@ class RouteSimulationTests(TestCase):
             "lat": 28.12009,
             "lon": -81.97385,
         })
-        result = simulate_route(mission)
+        self.assertEqual(simulate_route(mission).status, "passes_demo_checks")
+        result = simulate_route(mission, (DEMO_RESTRICTION,))
         self.assertEqual(result.status, "blocked")
         self.assertIsNone(result.eta_minutes)
         self.assertEqual(len(result.findings), 1)

@@ -1,5 +1,5 @@
 import { floridaPoly, isInFlorida, regionalPoint } from "./geography.js?v=1";
-import { distanceMiles, isPlace, normalized, photonPlaces } from "./places.js?v=6";
+import { distanceMiles, isPlace, normalized, photonPlaces } from "./places.js?v=7";
 
 export const chains = {
   mcdonalds: { name: "McDonald’s", query: "McDonald's" },
