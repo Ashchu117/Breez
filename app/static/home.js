@@ -208,6 +208,15 @@ const findDetour = document.querySelector("#find-detour");
 const detourStatus = document.querySelector("#detour-status");
 const routeChoice = document.querySelector("#route-choice");
 const routeChoiceLabel = document.querySelector("#route-choice-label");
+const briefingButton = document.querySelector("#request-briefing");
+const briefingText = document.querySelector("#briefing-text");
+const approveRoute = document.querySelector("#approve-route");
+const holdRoute = document.querySelector("#hold-route");
+const reviewStatus = document.querySelector("#review-status");
+const reviews = new Map();
+const briefings = new Map();
+let selectedRoute;
+let briefingRequest;
 let routeMission;
 let directRoute;
 let alternateRoute;
@@ -217,6 +226,8 @@ function showRoute(mission, result) {
   detourRequest?.abort();
   detourRequest = undefined;
   routeMission = mission;
+  reviews.clear();
+  briefings.clear();
   directRoute = result;
   alternateRoute = undefined;
   findDetour.hidden = result.status !== "blocked";
@@ -263,7 +274,75 @@ function renderRoute(mission, result) {
     result === alternateRoute ? "Selected detour" : "Candidate route";
   document.querySelector("#route-zone-key").hidden = !result.restrictions.length;
   updateMap(mission.origin, mission.destination, result, labels);
+  briefingRequest?.abort();
+  briefingRequest = undefined;
+  selectedRoute = result;
+  briefingText.textContent = briefings.get(result) ?? "";
+  briefingButton.hidden = briefings.has(result);
+  briefingButton.disabled = false;
+  renderReview();
 }
+
+function renderReview() {
+  const blocked = selectedRoute.status === "blocked";
+  const decision = reviews.get(selectedRoute);
+  approveRoute.disabled = blocked;
+  approveRoute.setAttribute("aria-pressed", String(decision === "approved"));
+  holdRoute.setAttribute("aria-pressed", String(decision === "held"));
+  reviewStatus.textContent = decision === "approved" ? "Approved for this simulation." :
+    decision === "held" ? "On hold for this simulation." :
+    blocked ? "Only Hold is available because this route overlaps listed FAA airspace." :
+    "Awaiting your decision.";
+}
+
+approveRoute.addEventListener("click", () => {
+  if (selectedRoute?.status !== "no_listed_overlap") return;
+  reviews.set(selectedRoute, "approved");
+  renderReview();
+});
+holdRoute.addEventListener("click", () => {
+  if (!selectedRoute) return;
+  reviews.set(selectedRoute, "held");
+  renderReview();
+});
+
+briefingButton.addEventListener("click", async () => {
+  if (!selectedRoute || briefingRequest) return;
+  const route = selectedRoute;
+  const controller = new AbortController();
+  briefingRequest = controller;
+  briefingButton.disabled = true;
+  briefingText.textContent = "Generating the explanation…";
+  const { origin, destination } = routeMission;
+  const coordinates = ({ lat, lon }) => ({ lat, lon });
+  try {
+    const response = await fetch("/api/route-briefing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        origin: coordinates(origin), destination: coordinates(destination), confirmed: true,
+        candidate: route === alternateRoute ? "detour" : "direct",
+      }),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(23000)]),
+    });
+    if (!response.ok) throw new Error("Briefing unavailable");
+    const { explanation } = await response.json();
+    if (typeof explanation !== "string" || !explanation.trim()) throw new Error("Briefing missing");
+    if (controller.signal.aborted) return;
+    briefings.set(route, explanation);
+    briefingText.textContent = explanation;
+    briefingButton.hidden = true;
+  } catch {
+    if (!controller.signal.aborted) {
+      briefingText.textContent = "The AI briefing is unavailable. You can still use the route results and record a decision.";
+    }
+  } finally {
+    if (briefingRequest === controller) {
+      briefingRequest = undefined;
+      briefingButton.disabled = false;
+    }
+  }
+});
 
 findDetour.addEventListener("click", async () => {
   if (findDetour.disabled || !routeMission) return;
@@ -313,6 +392,9 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
   const mission = routeMission;
   detourRequest?.abort();
   detourRequest = undefined;
+  briefingRequest?.abort();
+  briefingRequest = undefined;
+  selectedRoute = undefined;
   routeMission = undefined;
   routeSummary.hidden = true;
   delete home.dataset.routeView;

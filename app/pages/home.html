@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=10">
+  <link rel="stylesheet" href="/static/breez.css?v=11">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=15"></script>
+  <script type="module" src="/static/home.js?v=16"></script>
 </head>
 <body>
   <header class="site-header">
@@ -60,6 +60,19 @@
       <p class="form-note" id="route-finding" hidden></p>
       <p class="form-note" id="route-assumptions"></p>
       <p class="form-note"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Simulation only. Detours avoid listed FAA areas in two dimensions. Weather, aircraft traffic, and current flight restrictions are outside this check.</p>
+      <section class="route-step" aria-labelledby="briefing-title">
+        <h3 id="briefing-title">AI briefing</h3>
+        <button class="text-button" id="request-briefing" type="button">Explain this route</button>
+        <p class="form-note" id="briefing-text" role="status"></p>
+      </section>
+      <section class="route-step" aria-labelledby="review-title">
+        <h3 id="review-title">Human review</h3>
+        <div class="review-actions">
+          <button class="text-button" id="approve-route" type="button" aria-pressed="false" aria-describedby="review-status">Approve for simulation</button>
+          <button class="text-button" id="hold-route" type="button" aria-pressed="false">Hold</button>
+        </div>
+        <p class="form-note" id="review-status" role="status"></p>
+      </section>
       <div class="route-legend" aria-label="Map legend">
         <span><i id="route-line-key" aria-hidden="true"></i><span id="route-line-label">Candidate route</span></span>
         <span id="route-zone-key" hidden><i aria-hidden="true"></i>Published FAA area</span>

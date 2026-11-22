@@ -68,9 +68,9 @@ def simulate_route(mission: ConfirmedRoute) -> RouteResponse:
     return screen_route(list(route_endpoints(mission)))
 
 
-def alternative_route(mission: ConfirmedRoute) -> RouteResponse | None:
-    start, end = route_endpoints(mission)
-    direct = screen_route([start, end])
+def alternative_route(mission: ConfirmedRoute, *, direct: RouteResponse | None = None) -> RouteResponse | None:
+    direct = direct if direct is not None else simulate_route(mission)
+    start, end = direct.points
     if not direct.findings:
         return direct
 

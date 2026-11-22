@@ -35,7 +35,7 @@ Choose **Order food**, set a Florida drop-off point, then pick McDonald’s, Wen
 
 Restaurant search uses Photon’s OpenStreetMap fast-food data through the same public demo service as place search. It filters results by chain and the Florida boundary. Local fallback addresses are from the [McDonald’s](https://www.mcdonalds.com/us/en-us/restaurant-directory/florida/lakeland.html), [Wendy’s](https://locations.wendys.com/united-states/fl/lakeland), and [Burger King](https://www.bk.com/store-locator) locators with Census address estimates. Search coverage depends on mapped branches.
 
-The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. The planned concierge will populate this same draft from plain-language requests and ask for missing details. Exact device coordinates are omitted from saved tab drafts.
+The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. Choose **Describe your order** to populate this draft from plain language and answer follow-up questions. After simulating a route, choose **Explain this route** for an AI briefing, then record **Approve for simulation** or **Hold**. The decision applies to the displayed candidate for the current review. Exact device coordinates are omitted from saved tab drafts.
 
 ## Concierge and route simulation
 

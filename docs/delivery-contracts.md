@@ -2,7 +2,7 @@
 
 ## Concierge provider and cost
 
-Breez uses the hackathon's sponsored OpenRouter key with [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna) and [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs). The app, map, and planned route simulation run on palserver. The concierge extracts free text, asks for missing details, and hands the order to the existing branch picker and cart. Explaining route results comes after the simulation is implemented.
+Breez uses the hackathon's sponsored OpenRouter key with [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna) and [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs). The app, map, and route simulation run on palserver. The concierge extracts free text, asks for missing details, and hands the order to the existing branch picker and cart. The route briefing explains Python's results for the selected candidate.
 
 OpenRouter lists Standard rates of $0.10 per million input tokens and $0.50 per million output tokens for Luna. Breez caps the total attempt count at 500 and limits the request size and generated output. At 4,000 input and 800 output tokens each, 500 calls would use about $0.40 in sponsor credits at those rates. The application has no paid backup key configured.
 
@@ -52,9 +52,15 @@ Refresh the public-use FAA snapshot from the repo with `python scripts/update_fa
 
 In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) shows a preview with no listed overlap. In the trip planner, Titusville to Cocoa Beach intersects published restricted airspace in the bundled snapshot.
 
-## Enable the sponsored concierge on palserver
+## Brief and review a candidate
 
-Breez uses Navarro's OpenRouter credits only for the concierge. [The workshop example](https://github.com/fpunavarro/connect-api-llm/blob/main/connect-api-llm/README.md) demonstrates the OpenAI-compatible API. Breez uses OpenRouter's Chat Completions endpoint with the existing extraction schema and leaves the manual menu available when the API is offline or credits are exhausted.
+**Explain this route** calls `POST /api/route-briefing` with confirmed endpoint coordinates and the selected candidate type. Breez computes the result again on the server. OpenRouter receives the screening outcome, any intersecting FAA area names, and the calculated distance and time. Addresses, endpoint coordinates, and order details stay out of the briefing prompt. The briefing uses the same request budget as order extraction.
+
+The Python result and review controls stay available during an AI outage. The reviewer can hold either candidate and can approve a candidate for simulation after it passes the snapshot overlap check. The browser keeps each decision with its candidate for the current review.
+
+## Enable the sponsored AI features on palserver
+
+Breez uses Navarro's OpenRouter credits for order extraction and the route briefing. [The workshop example](https://github.com/fpunavarro/connect-api-llm/blob/main/connect-api-llm/README.md) demonstrates the OpenAI-compatible API. Breez uses OpenRouter's Chat Completions endpoint with the existing extraction schema and leaves the manual menu available when the API is offline or credits are exhausted.
 
 Run this from the palserver host as a sudo-capable admin after the Git sync. Paste the team key only when prompted. The root-only credential file stays outside both the checkout and the SSH chroot.
 

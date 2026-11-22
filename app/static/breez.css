@@ -378,6 +378,13 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-details { display: grid; gap: 0.7rem; margin: 1.15rem 0; }
 .route-details dt { color: var(--muted); font-size: 0.78rem; }
 .route-details dd { margin: 0.2rem 0 0; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
+.route-step { border-top: 1px solid var(--border); padding-top: 0.85rem; margin-top: 1rem; }
+.route-step h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.route-step .form-note { margin: 0.55rem 0 0; }
+.route-step .form-note:empty { display: none; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.review-actions button[aria-pressed="true"] { background: var(--accent); color: var(--ink); }
+.route-step button:disabled { opacity: 0.55; cursor: default; }
 .route-legend { display: flex; flex-wrap: wrap; gap: 0.55rem 1rem; margin-top: 1.1rem; color: var(--muted); font-size: 0.78rem; }
 .route-legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
 .route-legend > span[hidden] { display: none; }

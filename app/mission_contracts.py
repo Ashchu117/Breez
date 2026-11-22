@@ -92,6 +92,14 @@ class TripRouteRequest(ConfirmedRoute):
     mode: Literal["trip"]
 
 
+class BriefingRequest(ConfirmedRoute):
+    candidate: Literal["direct", "detour"]
+
+
+class RouteBriefing(Contract):
+    explanation: str = Field(min_length=1, max_length=650)
+
+
 class AirspaceRestriction(Contract):
     id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=200)
