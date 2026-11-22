@@ -60,9 +60,11 @@ def intersects_area(start: Coordinates, end: Coordinates, area: AirspaceRestrict
     return False
 
 
-def nearby_airspace(start: Coordinates, end: Coordinates):
+def nearby_airspace(points, margin=0.05):
+    west, south, east, north = bounds((point.lon, point.lat) for point in points)
+    return airspace_in_extent((west - margin, south - margin, east + margin, north + margin))
+
+
+def airspace_in_extent(viewport):
     retrieved_at, areas = load_airspace()
-    west, south, east, north = bounds(((start.lon, start.lat), (end.lon, end.lat)))
-    margin = 0.05
-    viewport = (west - margin, south - margin, east + margin, north + margin)
     return retrieved_at, [area for extent, area in areas if overlaps(viewport, extent)]

@@ -1,8 +1,8 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=8";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=6";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=6";
-import { simulateMission } from "./simulation.js?v=2";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=7";
+import { simulateMission } from "./simulation.js?v=3";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -204,9 +204,31 @@ const updateMap = startMap();
 const routeSummary = document.querySelector("#route-summary");
 const home = document.querySelector(".home");
 const routeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+const findDetour = document.querySelector("#find-detour");
+const detourStatus = document.querySelector("#detour-status");
+const routeChoice = document.querySelector("#route-choice");
+const routeChoiceLabel = document.querySelector("#route-choice-label");
 let routeMission;
+let directRoute;
+let alternateRoute;
+let detourRequest;
+
 function showRoute(mission, result) {
+  detourRequest?.abort();
+  detourRequest = undefined;
   routeMission = mission;
+  directRoute = result;
+  alternateRoute = undefined;
+  findDetour.hidden = result.status !== "blocked";
+  findDetour.disabled = false;
+  detourStatus.textContent = "";
+  routeChoiceLabel.hidden = true;
+  routeChoice.value = "direct";
+  renderRoute(mission, result);
+  document.querySelector("#route-title").focus();
+}
+
+function renderRoute(mission, result) {
   const trip = mission.mode === "trip";
   const labels = trip ? ["Start", "Destination"] : ["Pickup", "Drop-off"];
   const blocked = result.status === "blocked";
@@ -237,11 +259,46 @@ function showRoute(mission, result) {
     " · Retrieved " + new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeZone: "UTC"}).format(snapshot);
   finding.hidden = !zoneNames.length;
   finding.textContent = zoneNames.length ? "The dashed segment crosses published airspace for " + zoneNames.join(", ") + "." : "";
-  document.querySelector("#route-line-label").textContent = blocked ? "Segment for review" : "Candidate route";
+  document.querySelector("#route-line-label").textContent = blocked ? "Segment for review" :
+    result === alternateRoute ? "Selected detour" : "Candidate route";
   document.querySelector("#route-zone-key").hidden = !result.restrictions.length;
-  document.querySelector("#route-title").focus();
   updateMap(mission.origin, mission.destination, result, labels);
 }
+
+findDetour.addEventListener("click", async () => {
+  if (findDetour.disabled || !routeMission) return;
+  const controller = new AbortController();
+  detourRequest = controller;
+  findDetour.disabled = true;
+  detourStatus.textContent = "Searching for a detour…";
+  try {
+    const result = await simulateMission(routeMission, controller.signal, { detour: true });
+    if (controller.signal.aborted) return;
+    if (!result) {
+      detourStatus.textContent = "No detour found within the search area. Try a different start or destination.";
+      return;
+    }
+    alternateRoute = result;
+    routeChoice.options[1].textContent = "Shortest detour found · " + routeFormat.format(result.eta_minutes) + " min";
+    routeChoiceLabel.hidden = false;
+    routeChoice.value = "detour";
+    renderRoute(routeMission, result);
+    routeChoice.focus();
+    findDetour.hidden = true;
+    detourStatus.textContent = "Detour shown on the map.";
+  } catch (error) {
+    if (!controller.signal.aborted) detourStatus.textContent = error.message;
+  } finally {
+    if (detourRequest === controller) {
+      detourRequest = undefined;
+      findDetour.disabled = false;
+    }
+  }
+});
+routeChoice.addEventListener("change", () => {
+  renderRoute(routeMission, routeChoice.value === "detour" ? alternateRoute : directRoute);
+  detourStatus.textContent = "";
+});
 
 const foodOrder = createFoodOrder({
   onRoute: showRoute,
@@ -254,6 +311,8 @@ const foodOrder = createFoodOrder({
 });
 document.querySelector("#back-to-order").addEventListener("click", () => {
   const mission = routeMission;
+  detourRequest?.abort();
+  detourRequest = undefined;
   routeMission = undefined;
   routeSummary.hidden = true;
   delete home.dataset.routeView;

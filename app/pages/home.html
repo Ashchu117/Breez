@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=9">
+  <link rel="stylesheet" href="/static/breez.css?v=10">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=14"></script>
+  <script type="module" src="/static/home.js?v=15"></script>
 </head>
 <body>
   <header class="site-header">
@@ -43,6 +43,14 @@
       <button class="text-button" id="back-to-order" type="button">← Back to order</button>
       <h2 id="route-title" tabindex="-1">Delivery simulation</h2>
       <p class="route-status" id="route-status"></p>
+      <button class="save" id="find-detour" type="button" hidden>Find a detour</button>
+      <label id="route-choice-label" hidden>Route to display
+        <select id="route-choice">
+          <option value="direct">Direct route · review required</option>
+          <option value="detour">Shortest detour found</option>
+        </select>
+      </label>
+      <p class="form-note" id="detour-status" role="status"></p>
       <dl class="route-details">
         <div><dt id="route-origin-label">Pickup</dt><dd id="route-pickup"></dd></div>
         <div><dt id="route-destination-label">Drop-off</dt><dd id="route-dropoff"></dd></div>
@@ -51,7 +59,7 @@
       </dl>
       <p class="form-note" id="route-finding" hidden></p>
       <p class="form-note" id="route-assumptions"></p>
-      <p class="form-note"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Horizontal screening only. Check current FAA notices and authorizations before flight.</p>
+      <p class="form-note"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Simulation only. Detours avoid listed FAA areas in two dimensions. Weather, aircraft traffic, and current flight restrictions are outside this check.</p>
       <div class="route-legend" aria-label="Map legend">
         <span><i id="route-line-key" aria-hidden="true"></i><span id="route-line-label">Candidate route</span></span>
         <span id="route-zone-key" hidden><i aria-hidden="true"></i>Published FAA area</span>

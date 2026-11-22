@@ -1,9 +1,11 @@
+from itertools import pairwise
 from unittest import TestCase
 
 from pydantic import ValidationError
 
+from app.faa_airspace import intersects_area, nearby_airspace
 from app.mission_contracts import RouteRequest, TripRouteRequest
-from app.route_simulation import simulate_route
+from app.route_simulation import alternative_route, distance_miles, simulate_route
 
 
 class RouteSimulationTests(TestCase):
@@ -59,6 +61,42 @@ class RouteSimulationTests(TestCase):
         self.assertIn("Boca Chica", {
             area.name for area in result.restrictions if area.id in finding_ids and area.kind == "uas_security"
         })
+
+    def test_detour_around_published_faa_airspace(self):
+        route = TripRouteRequest(
+            mode="trip", confirmed=True,
+            origin={"lat": 28.18, "lon": -81.82},
+            destination={"lat": 26.32, "lon": -80.09},
+        )
+        direct = simulate_route(route)
+        self.assertEqual(direct.status, "blocked")
+
+        result = alternative_route(route)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.status, "no_listed_overlap")
+        self.assertEqual(result.points[0], route.origin)
+        self.assertEqual(result.points[-1], route.destination)
+        self.assertGreater(len(result.points), 2)
+        length = sum(distance_miles(start, end) for start, end in pairwise(result.points))
+        self.assertAlmostEqual(result.distance_miles, length)
+        self.assertAlmostEqual(result.eta_minutes, length / result.assumed_speed_mph * 60)
+        self.assertGreaterEqual(length, direct.distance_miles)
+        self.assertLess(length, direct.distance_miles * 1.1)
+        for start, end in pairwise(result.points):
+            _, areas = nearby_airspace([start, end])
+            self.assertFalse(any(intersects_area(start, end, area) for area in areas))
+
+    def test_detour_unavailable_with_endpoint_inside_published_airspace(self):
+        route = TripRouteRequest(
+            mode="trip", confirmed=True,
+            origin={"lat": 28.61222, "lon": -80.80755},
+            destination={"lat": 28.3186, "lon": -80.6094},
+        )
+        self.assertIsNone(alternative_route(route))
+
+    def test_alternative_returns_direct_route_when_clear(self):
+        mission = self.mission()
+        self.assertEqual(alternative_route(mission), simulate_route(mission))
 
     def test_trip_preview_uses_coordinates(self):
         delivery = self.mission()

@@ -372,6 +372,9 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-summary h2 { margin: 1.45rem 0 0.7rem; font-size: clamp(1.65rem, 2.6vw, 2.35rem); line-height: 1.03; letter-spacing: -0.045em; }
 .route-status { margin: 0; font-weight: 650; color: #78ead5; }
 .route-summary[data-status="blocked"] .route-status { color: #ffad83; }
+#find-detour, #route-choice-label { margin-top: 0.9rem; }
+#route-choice { display: block; width: 100%; margin-top: 0.3rem; }
+#detour-status:empty { display: none; }
 .route-details { display: grid; gap: 0.7rem; margin: 1.15rem 0; }
 .route-details dt { color: var(--muted); font-size: 0.78rem; }
 .route-details dd { margin: 0.2rem 0 0; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }

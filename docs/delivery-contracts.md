@@ -41,7 +41,9 @@ The route engine computes distance, ETA, and horizontal overlaps with published 
 
 The trip planner uses the same endpoint with `mode: "trip"`, `confirmed: true`, and `origin` and `destination` objects containing `lat` and `lon`. Trip previews use coordinates only. Cargo and timing apply to delivery requests.
 
-The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. The map displays nearby published polygons and holds a candidate for review when it touches or crosses one. The screen checks horizontal overlap regardless of altitude or schedule. It covers the two downloaded sources below. The app reports the collection date and links users to the FAA for current notices and flight authorization.
+The initial candidate is a direct segment. The map displays nearby FAA polygons and holds a candidate for review when it touches or crosses one. Breez sums the great-circle length of each route segment and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading.
+
+When the direct candidate is blocked, **Find a detour** calls `POST /api/route-alternative` with the same request. The planner searches a bounded grid around the trip, straightens the candidate, and rechecks each segment against the published polygons. The response is a regular route result or `null` if the search found no candidate. The user can switch between the original route and the detour on the map. The estimate covers horizontal overlap with the two downloaded sources below. Altitude, activation schedules, weather, live aircraft conflicts, and current notices require separate review.
 
 - [FAA National Security UAS Flight Restrictions](https://udds-faa.opendata.arcgis.com/datasets/0270b9d8a5d34217856cc03aaf833309_0)
 - [FAA Special Use Airspace, prohibited and restricted areas](https://adds-faa.opendata.arcgis.com/datasets/dd0d1b726e504137ab3c41b21835d05b_0)
