@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=4">
+  <link rel="stylesheet" href="/static/breez.css?v=5">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=5"></script>
+  <script type="module" src="/static/home.js?v=6"></script>
 </head>
 <body>
   <header class="site-header">
@@ -62,9 +62,10 @@
     </div>
     <p class="form-note">Choose a starting point in Florida.</p>
     <div class="location-options">
-      <button class="save" id="use-location" type="button" autofocus>Use my location</button>
+      <button class="save" id="use-location" type="button" aria-describedby="location-permission location-note" autofocus>Use my location</button>
       <button class="text-button" id="use-campus" type="button">Florida Polytechnic University</button>
     </div>
+    <p class="form-note location-note" id="location-permission" role="status"></p>
     <p class="form-note location-note" id="location-note" role="status"></p>
     <label for="origin-search">Or search for a starting point</label>
     <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">

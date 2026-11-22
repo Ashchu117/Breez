@@ -128,23 +128,59 @@ const locationDialog = document.querySelector("#location-dialog");
 const coverageDialog = document.querySelector("#coverage-dialog");
 const originInput = document.querySelector("#origin-search");
 const locationNote = document.querySelector("#location-note");
+const locationPermission = document.querySelector("#location-permission");
 const locationButton = document.querySelector("#change-origin");
 const useLocation = document.querySelector("#use-location");
 const canLocate = window.isSecureContext && Boolean(navigator.geolocation);
 const updateMap = startMap();
 let locationAttempt = 0;
 let pendingPlan = null;
+let locationBusy = false;
+let permissionState;
+
+function updateLocationButton() {
+  useLocation.disabled = !canLocate || locationBusy || permissionState === "denied";
+}
+
+function showPermission(state) {
+  permissionState = state;
+  locationPermission.dataset.state = state;
+  locationPermission.textContent = {
+    granted: "Location permission granted.",
+    denied: "Location access is blocked. Check this site’s browser permissions.",
+    prompt: "Your browser may ask for permission when you use your location.",
+  }[state] ?? "";
+  updateLocationButton();
+}
+
+async function watchLocationPermission() {
+  if (!canLocate || !navigator.permissions?.query) return;
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" });
+    showPermission(status.state);
+    status.addEventListener("change", () => showPermission(status.state));
+  } catch {
+    // Browsers without a geolocation permission query can still locate on click.
+  }
+}
+
+function setLocationBusy(busy) {
+  locationBusy = busy;
+  updateLocationButton();
+}
+
+watchLocationPermission();
 
 async function setStartingPoint(point) {
   const attempt = ++locationAttempt;
-  useLocation.disabled = true;
+  setLocationBusy(true);
   locationNote.textContent = "Checking Florida coverage…";
   let supported;
   try {
     supported = point === floridaPoly || await isInFlorida(point);
   } catch {
     if (attempt === locationAttempt && locationDialog.open) {
-      useLocation.disabled = !canLocate;
+      setLocationBusy(false);
       locationNote.textContent = "Couldn’t verify that location. Try again or use Florida Polytechnic University.";
     }
     return;
@@ -176,25 +212,32 @@ function askForLocation(type = null) {
   pendingPlan = type;
   originInput.value = "";
   originSearch.reset();
-  useLocation.disabled = !canLocate;
-  locationNote.textContent = canLocate ? "" : "Device location requires HTTPS. You can search below.";
+  setLocationBusy(false);
+  locationNote.textContent = !window.isSecureContext
+    ? "Device location requires HTTPS. You can search below."
+    : canLocate ? "" : "This browser cannot provide device location. You can search below.";
   locationDialog.showModal();
-  if (!canLocate) originInput.focus();
+  if (useLocation.disabled) originInput.focus();
 }
 
 useLocation.addEventListener("click", () => {
   const attempt = ++locationAttempt;
-  useLocation.disabled = true;
+  setLocationBusy(true);
   locationNote.textContent = "Getting your location…";
   navigator.geolocation.getCurrentPosition(({ coords }) => {
     if (attempt !== locationAttempt || !locationDialog.open) return;
+    showPermission("granted");
     setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude });
   }, (error) => {
     if (attempt !== locationAttempt || !locationDialog.open) return;
-    useLocation.disabled = false;
-    locationNote.textContent = error.code === 1
-      ? "Location permission was declined. Search below or choose Florida Polytechnic University."
-      : "Couldn’t get your location. Search below or choose Florida Polytechnic University.";
+    setLocationBusy(false);
+    if (error.code === 1 && permissionState !== "granted") {
+      locationNote.textContent = "Location access was blocked. Check browser and device settings, or search below.";
+    } else if (error.code === 3) {
+      locationNote.textContent = "Getting your location timed out. Try again or search below.";
+    } else {
+      locationNote.textContent = "Your device couldn’t provide a location. Check that location services are on, or search below.";
+    }
   }, { timeout: 10_000, maximumAge: 60_000 });
 });
 
@@ -205,5 +248,6 @@ document.querySelector("#retry-location").addEventListener("click", () => covera
 coverageDialog.addEventListener("close", () => askForLocation(pendingPlan));
 locationDialog.addEventListener("close", () => {
   locationAttempt++;
+  setLocationBusy(false);
   originSearch.reset();
 });

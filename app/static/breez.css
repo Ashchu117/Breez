@@ -265,6 +265,7 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .location-options { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
 .location-options .save { margin: 0; }
 .location-note:empty, .search-status:empty { display: none; }
+#location-permission[data-state="granted"] { color: var(--accent); }
 .search-status { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.83rem; }
 .distance-note, .place-credit { margin: 0.45rem 0 0; }
 .place-credit { font-size: 0.75rem; }
