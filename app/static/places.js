@@ -1,5 +1,6 @@
+import { floridaBounds, floridaPoly, isInFlorida, regionalPoint } from "./geography.js?v=1";
+
 const PHOTON_URL = "https://photon.komoot.io/api/";
-const FLORIDA_BIAS = { lat: "28.15", lon: "-81.85" };
 const localPlaces = [
   // Addresses from lovebirdeats.com. Winter Haven is geocoded by the US Census Bureau.
   { name: "LoveBird Almost Famous Chicken", address: "2101 South Florida Avenue, Lakeland, FL", lat: 28.0183316, lon: -81.9573739 },
@@ -38,7 +39,7 @@ function readPlace(feature) {
   const name = props.name || street || props.city || props.district;
   const area = [props.city || props.district || props.county, props.state, props.countrycode === "US" ? "" : props.country];
   const address = [...new Set([street, ...area].filter((value) => value && value !== name))].join(", ");
-  return { name, address, lat, lon };
+  return { name, address, lat, lon, area: props.city || props.town || name };
 }
 
 function sameLocation(first, second) {
@@ -54,21 +55,30 @@ function mergePlaces(primary, remote) {
   return places.slice(0, 8);
 }
 
-async function searchPlaces(query, signal) {
-  const key = normalized(query);
-  const known = localPlaces.filter((place) => normalized(place.name).startsWith(key));
+async function searchPlaces(query, signal, { floridaOnly, origin }) {
+  const queryKey = normalized(query);
+  const bias = regionalPoint(origin ?? floridaPoly);
+  const key = [floridaOnly, bias.lat, bias.lon, queryKey].join(":");
+  const known = localPlaces.filter((place) => normalized(place.name).startsWith(queryKey));
   if (cache.has(key)) return { places: cache.get(key), partial: false };
 
   try {
     const url = new URL(PHOTON_URL);
-    url.search = new URLSearchParams({ q: query, limit: "10", ...FLORIDA_BIAS });
+    const params = new URLSearchParams({ q: query, limit: "12", lat: bias.lat, lon: bias.lon, zoom: "8" });
+    if (floridaOnly) {
+      params.set("bbox", floridaBounds.join(","));
+      params.set("countrycode", "US");
+    }
+    url.search = params;
     const response = await fetch(url, {
       referrerPolicy: "no-referrer",
       signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
     });
     if (!response.ok) throw new Error("Place search unavailable");
     const payload = await response.json();
-    const places = mergePlaces(known, payload.features.map(readPlace).filter(isPlace));
+    const remotePlaces = payload.features.map(readPlace).filter(isPlace);
+    const inScope = floridaOnly ? await Promise.all(remotePlaces.map(isInFlorida)) : null;
+    const places = mergePlaces(known, remotePlaces.filter((_, index) => !inScope || inScope[index]));
     if (cache.size >= 40) cache.delete(cache.keys().next().value);
     cache.set(key, places);
     return { places, partial: false };
@@ -78,7 +88,7 @@ async function searchPlaces(query, signal) {
   }
 }
 
-export function createPlaceSearch({ input, list, status, getOrigin = () => null, onSelect, onType = () => {} }) {
+export function createPlaceSearch({ input, list, status, getOrigin = () => null, floridaOnly = false, onSelect, onType = () => {} }) {
   let matches = [];
   let active = -1;
   let timer;
@@ -154,13 +164,13 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
     timer = setTimeout(async () => {
       status.textContent = "Searching places…";
       try {
-        const { places, partial } = await searchPlaces(query, controller.signal);
+        const { places, partial } = await searchPlaces(query, controller.signal, { floridaOnly, origin: getOrigin() });
         if (controller.signal.aborted) return;
         showResults(places);
         if (partial) {
           status.textContent = places.length ? "Showing verified local results." : "Place search unavailable. Try again shortly.";
         } else {
-          status.textContent = places.length ? places.length + " suggestions" : "No matching places.";
+          status.textContent = places.length ? places.length + " suggestions" : floridaOnly ? "No matching places in Florida." : "No matching places.";
         }
       } catch {
         // A newer query or a closed dialog has replaced this request.

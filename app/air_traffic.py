@@ -1,32 +1,48 @@
 import json
 import logging
+from dataclasses import dataclass, field
 from math import isfinite
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from time import monotonic, time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
 
-# Florida Poly / Lakeland, within 35 nautical miles.
-FEED_URL = "https://api.adsb.lol/v2/point/28.15/-81.85/35"
+FEED_POINT_URL = "https://api.adsb.lol/v2/point"
+RADIUS_NM = 50
 REFRESH_SECONDS = 240
 MAX_POSITION_AGE_SECONDS = 90
 MAX_FEED_BYTES = 512 * 1024
+# Leave headroom under the unauthenticated 500 requests per IP per UTC day.
+REQUESTS_PER_DAY = 450
 cache_lock = Lock()
-snapshot = None
-next_refresh = 0.0
+upstream_slots = BoundedSemaphore(4)
+budget_day = -1
+requests_used = 0
+blocked_until = 0.0
+
+
+@dataclass
+class CachedRegion:
+    lock: Lock = field(default_factory=Lock)
+    snapshot: dict | None = None
+    refresh_at: float = 0.0
+
+
+regions: dict[tuple[float, float], CachedRegion] = {}
 
 
 def valid_number(value) -> bool:
     return type(value) in (float, int) and isfinite(value)
 
 
-def read_snapshot() -> dict:
-    request = Request(FEED_URL, headers={"User-Agent": "Breez/1.0", "Accept": "application/json"})
+def read_snapshot(lat: float, lon: float) -> dict:
+    url = f"{FEED_POINT_URL}/{lat}/{lon}/{RADIUS_NM}"
+    request = Request(url, headers={"User-Agent": "Breez/1.0", "Accept": "application/json"})
     with urlopen(request, timeout=5) as response:
         content = response.read(MAX_FEED_BYTES + 1)
     if len(content) > MAX_FEED_BYTES:
@@ -37,45 +53,88 @@ def read_snapshot() -> dict:
     records = payload.get("ac")
     if not valid_number(observed_at) or abs(time() - observed_at / 1000) > 120:
         raise ValueError("Aircraft feed timestamp is outside the freshness window")
+    if records is None and payload.get("total") == 0:
+        records = []
     if not isinstance(records, list):
         raise ValueError("Aircraft feed is missing its aircraft list")
 
     aircraft = []
     for record in records:
-        lat, lon, age = (record.get(key) for key in ("lat", "lon", "seen_pos"))
-        if not all(valid_number(value) for value in (lat, lon, age)):
+        if not isinstance(record, dict):
             continue
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180 and 0 <= age <= MAX_POSITION_AGE_SECONDS):
+        latitude, longitude, age = (record.get(key) for key in ("lat", "lon", "seen_pos"))
+        if not all(valid_number(value) for value in (latitude, longitude, age)):
+            continue
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180 and 0 <= age <= MAX_POSITION_AGE_SECONDS):
             continue
 
         heading = record.get("track")
         aircraft.append({
-            "latitude": lat,
-            "longitude": lon,
+            "latitude": latitude,
+            "longitude": longitude,
             "heading": heading % 360 if valid_number(heading) else None,
         })
 
-    return {"observed_at": observed_at, "aircraft": aircraft, "source": FEED_URL}
+    return {
+        "observed_at": observed_at,
+        "aircraft": aircraft,
+        "source": url,
+        "region": {"lat": lat, "lon": lon},
+    }
+
+
+def reserve_request() -> bool:
+    global budget_day, requests_used
+
+    with cache_lock:
+        today = int(time() // 86_400)
+        if today != budget_day:
+            budget_day = today
+            requests_used = 0
+        if requests_used >= REQUESTS_PER_DAY or monotonic() < blocked_until:
+            return False
+        requests_used += 1
+        return True
+
+
+def refresh_region(cached: CachedRegion, lat: float, lon: float) -> None:
+    global blocked_until
+
+    if not upstream_slots.acquire(blocking=False):
+        return
+    try:
+        cached.snapshot = None
+        if not reserve_request():
+            cached.refresh_at = monotonic() + 30
+            return
+        cached.refresh_at = monotonic() + REFRESH_SECONDS
+        cached.snapshot = read_snapshot(lat, lon)
+    except (OSError, ValueError, AttributeError) as error:
+        if isinstance(error, HTTPError) and error.code == 429:
+            retry_after = error.headers.get("Retry-After", "")
+            backoff = int(retry_after) if retry_after.isdecimal() else 900
+            with cache_lock:
+                blocked_until = max(blocked_until, monotonic() + backoff)
+        logger.warning("Aircraft feed unavailable: %s", error)
+    finally:
+        upstream_slots.release()
 
 
 @router.get("/air-traffic")
-def air_traffic() -> dict:
-    global snapshot, next_refresh
-
-    # A single upstream request per interval for all viewers of this worker.
+def air_traffic(
+    lat: float = Query(28.15, ge=24, le=31.5),
+    lon: float = Query(-81.85, ge=-88, le=-79.5),
+) -> dict:
+    # Coarse buckets bound cache size and keep exact coordinates off the feed URL.
+    center = (round(lat * 2) / 2, round(lon * 2) / 2)
     with cache_lock:
-        if monotonic() >= next_refresh:
-            next_refresh = monotonic() + REFRESH_SECONDS
-            try:
-                snapshot = read_snapshot()
-            except (OSError, ValueError, AttributeError) as error:
-                snapshot = None
-                if isinstance(error, HTTPError):
-                    retry_after = error.headers.get("Retry-After", "")
-                    if retry_after.isdecimal():
-                        next_refresh = max(next_refresh, monotonic() + int(retry_after))
-                logger.warning("Aircraft feed unavailable: %s", error)
+        cached = regions.get(center)
+        if cached is None:
+            cached = regions[center] = CachedRegion()
 
-        if snapshot is None:
+    with cached.lock:
+        if monotonic() >= cached.refresh_at:
+            refresh_region(cached, *center)
+        if cached.snapshot is None:
             raise HTTPException(status_code=503, detail="Aircraft data is temporarily unavailable")
-        return snapshot
+        return cached.snapshot

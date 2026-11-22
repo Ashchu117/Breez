@@ -259,9 +259,11 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .save { margin-top: 0.2rem; padding: 0.6rem 0.9rem; color: var(--ink); background: var(--accent); border: 0; border-radius: 0.4rem; font-weight: 650; }
 .save:hover { background: #e3ffb4; }
 .save:disabled { cursor: default; opacity: 0.5; }
+#coverage-dialog h2 { margin: 0; font-size: 1.65rem; letter-spacing: -0.035em; }
 #location-dialog h2 { margin: 0; font-size: 1.65rem; letter-spacing: -0.035em; }
 #location-dialog label { display: block; margin-top: 1rem; }
-#location-dialog .text-button { margin-top: 0.8rem; }
+.location-options { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
+.location-options .save { margin: 0; }
 .location-note:empty, .search-status:empty { display: none; }
 .search-status { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.83rem; }
 .distance-note, .place-credit { margin: 0.45rem 0 0; }

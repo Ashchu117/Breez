@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=3">
+  <link rel="stylesheet" href="/static/breez.css?v=4">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=3"></script>
+  <script type="module" src="/static/home.js?v=4"></script>
 </head>
 <body>
   <header class="site-header">
@@ -29,7 +29,7 @@
         </button>
         <button class="choice" type="button" data-plan="delivery" aria-haspopup="dialog">
           <span class="choice-icon choice-package" aria-hidden="true"><span></span></span>
-          <span><strong>Order something</strong><small>Start with an item</small></span>
+          <span><strong>Order food</strong><small>Start with an item</small></span>
           <span class="choice-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -42,7 +42,7 @@
     <section class="traffic" aria-labelledby="traffic-title">
       <div class="map" id="traffic-map" aria-label="Interactive air traffic map centered on Lakeland"></div>
       <div class="traffic-info">
-        <h2 id="traffic-title"><span class="traffic-dot" aria-hidden="true"></span> Lakeland air traffic</h2>
+        <h2 id="traffic-title"><span class="traffic-dot" aria-hidden="true"></span> <span id="traffic-area">Lakeland air traffic</span></h2>
         <p id="traffic-status" role="status">Loading the aircraft map…</p>
         <button class="recenter" id="recenter-map" type="button" hidden>Recenter map</button>
       </div>
@@ -56,16 +56,26 @@
     </section>
   </main>
   <dialog id="location-dialog" aria-labelledby="location-title">
-    <h2 id="location-title">Where are you starting?</h2>
-    <p class="form-note">Set your starting point to see how far away each destination is.</p>
-    <button class="save" id="use-location" type="button" autofocus>Use my location</button>
+    <div class="dialog-header">
+      <h2 id="location-title">Where are you starting?</h2>
+      <button class="close" id="cancel-location" type="button" aria-label="Cancel starting point">×</button>
+    </div>
+    <p class="form-note">Choose a starting point in Florida.</p>
+    <div class="location-options">
+      <button class="save" id="use-location" type="button" autofocus>Use my location</button>
+      <button class="text-button" id="use-campus" type="button">Florida Polytechnic University</button>
+    </div>
     <p class="form-note location-note" id="location-note" role="status"></p>
     <label for="origin-search">Or search for a starting point</label>
     <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">
     <ul class="place-results" id="origin-results" role="listbox" aria-label="Starting point suggestions" hidden></ul>
     <p class="search-status" id="origin-status" role="status"></p>
-    <button class="text-button" id="skip-location" type="button">Continue without location</button>
     <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+  </dialog>
+  <dialog id="coverage-dialog" role="alertdialog" aria-labelledby="coverage-title" aria-describedby="coverage-note">
+    <h2 id="coverage-title">Only Florida is supported right now</h2>
+    <p class="form-note" id="coverage-note">More areas are coming soon. Choose a starting point in Florida to continue.</p>
+    <button class="save" id="retry-location" type="button" autofocus>Choose another location</button>
   </dialog>
   <dialog id="plan-dialog" aria-labelledby="dialog-title">
     <form id="plan-form">
