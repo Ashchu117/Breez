@@ -47,9 +47,14 @@ function loadDrafts() {
       const mission = type === "delivery" ? readFoodMission(value?.mission) : null;
       const place = isPlace(value?.place) ? value.place : null;
       const route = value?.preview;
-      const preview = type === "trip" && place && ["direct", "detour"].includes(route?.candidate)
-        ? { candidate: route.candidate, origin: isPlace(route.origin) && route.origin.kind !== "device" ? route.origin : null }
-        : null;
+      let preview = null;
+      if (["direct", "detour"].includes(route?.candidate)) {
+        if (type === "delivery" && mission) preview = { candidate: route.candidate };
+        else if (type === "trip" && place) {
+          const origin = isPlace(route.origin) && route.origin.kind !== "device" ? route.origin : null;
+          preview = { candidate: route.candidate, origin };
+        }
+      }
       return [[type, { detail, place, mission, preview }]];
     }));
   } catch {
@@ -67,6 +72,10 @@ function persistDrafts() {
   } catch {
     // Drafts remain available until the page closes if tab storage is disabled.
   }
+}
+
+function sameLocation(first, second) {
+  return first && second && first.lat === second.lat && first.lon === second.lon;
 }
 
 function openPlan(type, place) {
@@ -118,8 +127,9 @@ function renderDrafts() {
     edit.setAttribute("aria-label", `${edit.textContent} ${planTypes[type].summary.toLowerCase()}`);
     edit.addEventListener("click", () => {
       if (draft.preview) {
-        if (draft.preview.origin) restoreTripDraft(draft, draft.preview.origin);
-        else askForLocation("trip", draft);
+        const point = type === "trip" ? draft.preview.origin : draft.mission.destination;
+        if (point) restoreRouteDraft(type, draft, point);
+        else askForLocation(type, draft);
         return;
       }
       cancelDraftRestore();
@@ -197,7 +207,6 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     return;
   }
   const previous = drafts.get(selectedPlan);
-  const sameLocation = (a, b) => a && b && a.lat === b.lat && a.lon === b.lon;
   const preview = sameLocation(previous?.place, selectedDestination) &&
     (sameLocation(previous.preview?.origin, startingPoint) || startingPoint?.kind === "device" && previous.preview?.origin === null)
     ? previous.preview : null;
@@ -232,8 +241,8 @@ const briefingText = document.querySelector("#briefing-text");
 const approveRoute = document.querySelector("#approve-route");
 const holdRoute = document.querySelector("#hold-route");
 const reviewStatus = document.querySelector("#review-status");
-const saveTripRoute = document.querySelector("#save-trip-route");
-const saveTripStatus = document.querySelector("#save-trip-status");
+const saveRouteDraft = document.querySelector("#save-route-draft");
+const saveRouteStatus = document.querySelector("#save-route-status");
 const reviews = new Map();
 const briefings = new Map();
 let selectedRoute;
@@ -249,12 +258,14 @@ function cancelDraftRestore() {
   draftStatus.textContent = "";
 }
 
-async function restoreTripDraft(draft, origin) {
+async function restoreRouteDraft(type, draft, point) {
   if (draftRequest) return;
   const controller = new AbortController();
   draftRequest = controller;
-  draftStatus.textContent = "Checking your saved trip route…";
-  const mission = { mode: "trip", origin, destination: draft.place };
+  draftStatus.textContent = "Checking your saved route…";
+  const mission = type === "trip"
+    ? { mode: "trip", origin: point, destination: draft.place }
+    : { ...draft.mission, destination: point };
   try {
     const result = await simulateMission(mission, controller.signal);
     let detour;
@@ -266,11 +277,11 @@ async function restoreTripDraft(draft, origin) {
       } else notice = "The direct route now passes the FAA snapshot check. The saved detour is no longer needed.";
     }
     if (controller.signal.aborted) return;
-    startingPoint = origin;
-    locationButton.textContent = origin.name;
+    startingPoint = point;
+    locationButton.textContent = point.name;
     showRoute(mission, result, { detour, notice });
   } catch {
-    if (!controller.signal.aborted) draftStatus.textContent = "Couldn’t reopen the trip route. Your draft is still saved. Try again.";
+    if (!controller.signal.aborted) draftStatus.textContent = "Couldn’t reopen the route. Your draft is still saved. Try again.";
   } finally {
     if (draftRequest === controller) draftRequest = undefined;
   }
@@ -290,7 +301,7 @@ function showRoute(mission, result, { detour, notice = "" } = {}) {
   detourStatus.textContent = notice;
   routeChoiceLabel.hidden = true;
   routeChoice.value = "direct";
-  saveTripRoute.hidden = mission.mode !== "trip";
+  saveRouteDraft.textContent = mission.mode === "trip" ? "Save trip draft" : "Save order draft";
   if (detour) selectDetour(detour);
   else renderRoute(mission, result);
   routeSummary.scrollTop = 0;
@@ -335,28 +346,30 @@ function renderRoute(mission, result) {
   briefingRequest?.abort();
   briefingRequest = undefined;
   selectedRoute = result;
-  saveTripStatus.textContent = "";
+  saveRouteStatus.textContent = "";
   briefingText.textContent = briefings.get(result) ?? "";
   briefingButton.hidden = briefings.has(result);
   briefingButton.disabled = false;
   renderReview();
 }
 
-saveTripRoute.addEventListener("click", () => {
-  if (routeMission?.mode !== "trip" || !selectedRoute) return;
-  const { origin, destination } = routeMission;
-  drafts.set("trip", {
-    detail: destination.name,
-    place: destination,
-    preview: {
-      candidate: selectedRoute === alternateRoute ? "detour" : "direct",
-      origin: origin.kind === "device" ? null : origin,
-    },
-  });
+saveRouteDraft.addEventListener("click", () => {
+  if (!routeMission || !selectedRoute) return;
+  const { mode, origin, destination } = routeMission;
+  const candidate = selectedRoute === alternateRoute ? "detour" : "direct";
+  if (mode === "trip") {
+    drafts.set(mode, {
+      detail: destination.name,
+      place: destination,
+      preview: { candidate, origin: origin.kind === "device" ? null : origin },
+    });
+  } else {
+    drafts.set(mode, { detail: origin.name, mission: routeMission, preview: { candidate } });
+  }
   persistDrafts();
   renderDrafts();
-  saveTripStatus.textContent = selectedRoute === alternateRoute
-    ? "Trip draft saved with the detour." : "Trip draft saved with the direct route.";
+  const label = mode === "trip" ? "Trip draft" : "Order draft";
+  saveRouteStatus.textContent = label + " saved with the " + (candidate === "detour" ? "detour." : "direct route.");
 });
 
 function renderReview() {
@@ -462,7 +475,10 @@ routeChoice.addEventListener("change", () => {
 const foodOrder = createFoodOrder({
   onRoute: showRoute,
   onSave(mission) {
-    drafts.set("delivery", { detail: mission.origin.name, mission });
+    const previous = drafts.get("delivery");
+    const preview = sameLocation(previous?.mission?.origin, mission.origin) &&
+      sameLocation(previous.mission.destination, mission.destination) ? previous.preview : null;
+    drafts.set("delivery", { detail: mission.origin.name, mission, preview });
     persistDrafts();
     renderDrafts();
     updateMap(mission.origin, mission.destination);
@@ -490,7 +506,7 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
 });
 let locationAttempt = 0;
 let pendingPlan = null;
-let pendingTripDraft = null;
+let pendingRouteDraft = null;
 let locationBusy = false;
 let permissionState;
 let stopDeviceWatch;
@@ -562,10 +578,10 @@ async function setStartingPoint(point) {
   locationButton.textContent = point.name;
   updateMap(point);
   const plan = pendingPlan;
-  const tripDraft = pendingTripDraft;
+  const routeDraft = pendingRouteDraft;
   pendingPlan = null;
-  pendingTripDraft = null;
-  if (tripDraft) restoreTripDraft(tripDraft, point);
+  pendingRouteDraft = null;
+  if (routeDraft) restoreRouteDraft(plan, routeDraft, point);
   else if (plan) openPlan(plan);
 }
 
@@ -582,10 +598,10 @@ const originSearch = createPlaceSearch({
   },
 });
 
-function askForLocation(type = null, tripDraft = null) {
+function askForLocation(type = null, routeDraft = null) {
   cancelDraftRestore();
   pendingPlan = type;
-  pendingTripDraft = tripDraft;
+  pendingRouteDraft = routeDraft;
   originInput.value = "";
   originSearch.reset();
   setLocationBusy(false);
@@ -648,7 +664,7 @@ locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
 document.querySelector("#cancel-location").addEventListener("click", () => locationDialog.close());
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
-coverageDialog.addEventListener("close", () => askForLocation(pendingPlan, pendingTripDraft));
+coverageDialog.addEventListener("close", () => askForLocation(pendingPlan, pendingRouteDraft));
 locationDialog.addEventListener("close", () => {
   cancelDeviceWatch();
   locationAttempt++;

@@ -245,7 +245,7 @@ a { color: inherit; }
   overflow-wrap: anywhere;
 }
 
-.draft-actions { display: flex; gap: 0.5rem; }
+.draft-actions { display: flex; flex-shrink: 0; gap: 0.5rem; white-space: nowrap; }
 .draft button, .close {
   padding: 0.25rem;
   border: 0;
@@ -370,7 +370,7 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .home[data-route-view] .map { inset: 0; }
 .route-summary { padding: clamp(1.2rem, 3vw, 2.1rem); border-right: 1px solid var(--border); }
 .route-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-#draft-status:empty, #save-trip-status:empty { display: none; }
+#draft-status:empty, #save-route-status:empty { display: none; }
 .route-summary h2 { margin: 1.45rem 0 0.7rem; font-size: clamp(1.65rem, 2.6vw, 2.35rem); line-height: 1.03; letter-spacing: -0.045em; }
 .route-status { margin: 0; font-weight: 650; color: #78ead5; }
 .route-summary[data-status="blocked"] .route-status { color: #ffad83; }

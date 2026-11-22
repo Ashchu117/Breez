@@ -47,7 +47,7 @@ See the [AAM project context](docs/aam-context.md) for Florida and federal refer
 
 ## Homepage data and licensing
 
-Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. **Save trip draft** on a route preview remembers the selected direct route or detour. Reopening checks it against the current FAA snapshot. Breez asks for a new starting point when the saved trip used device location. Booking and checkout will require sign-in once those flows are implemented.
+Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. **Save trip draft** and **Save order draft** on the route preview remember the selected direct route or detour. Reopening checks it against the current FAA snapshot. Breez asks for the trip start or delivery drop-off again when the draft used device location. Booking and checkout will require sign-in once those flows are implemented.
 
 - [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt) uses the BSD 3-Clause license. The homepage loads a pinned build.
 - [OpenFreeMap](https://openfreemap.org/) allows commercial use of its public map service. The map credits OpenFreeMap, OpenMapTiles, and [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The underlying OpenStreetMap data is licensed under the ODbL.
