@@ -41,7 +41,7 @@ The delivery draft contains a restaurant pickup, drop-off, items, custom options
 
 See the [delivery contracts](docs/delivery-contracts.md) for the model choice, proposed budget, and Python request and response schemas.
 
-## Florida AAM research context
+## Florida advanced air mobility references
 
 See the [AAM project context](docs/aam-context.md) for Florida and federal references that inform the route simulation and judging demo.
 
