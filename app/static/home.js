@@ -1,15 +1,19 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=5";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=1";
+import { startMap } from "./traffic.js?v=2";
+import { createSampleMission, sampleDelivery } from "./sample-delivery.js?v=1";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
   delivery: { title: "Plan a delivery", label: "What would you like to order?", placeholder: "Enter an item", summary: "Delivery draft" },
+  sample: { title: "Sample delivery", label: "Cargo", placeholder: "Enter a package", summary: "Sample delivery draft" },
 };
 const draftKey = "breez.planDrafts";
 const drafts = loadDrafts();
 const dialog = document.querySelector("#plan-dialog");
 const planInput = document.querySelector("#plan-detail");
+const sampleTiming = document.querySelector("#sample-timing");
+const sampleOption = document.querySelector("#sample-option");
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 let selectedPlan;
@@ -31,6 +35,11 @@ function loadDrafts() {
       const value = saved?.[type];
       const detail = typeof value === "string" ? value : value?.detail;
       if (typeof detail !== "string" || !detail.trim() || detail.length > 240) return [];
+      if (type === "sample") {
+        const timing = value?.mission?.timing;
+        if (typeof timing !== "string" || !timing.trim() || timing.length > 120) return [];
+        return [[type, { detail, mission: createSampleMission(detail, timing) }]];
+      }
       return [[type, { detail, place: isPlace(value?.place) ? value.place : null }]];
     }));
   } catch {
@@ -54,7 +63,7 @@ function openPlan(type) {
   planInput.placeholder = plan.placeholder;
   const draft = drafts.get(type);
   selectedDestination = draft?.place ?? null;
-  planInput.value = draft?.detail ?? "";
+  configureSampleFields(type, draft);
   planInput.setCustomValidity("");
   tripSearch.setEnabled(type === "trip");
   document.querySelector("#trip-search").hidden = type !== "trip";
@@ -62,6 +71,25 @@ function openPlan(type) {
     ? "Distances are straight-line estimates." : "Set a starting point to see distances.";
   document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
   dialog.showModal();
+}
+
+function configureSampleFields(type, draft) {
+  const isSample = type === "sample";
+  planInput.value = draft?.detail ?? (isSample ? sampleDelivery.cargo : "");
+  sampleTiming.value = isSample ? draft?.mission?.timing ?? sampleDelivery.timing : "";
+  sampleTiming.setCustomValidity("");
+  sampleTiming.disabled = !isSample;
+  sampleTiming.required = isSample;
+  document.querySelector("#sample-stops").hidden = !isSample;
+  document.querySelector("#sample-timing-field").hidden = !isSample;
+  document.querySelector("#plan-note").textContent = isSample
+    ? "These stops are fictional. The draft stays in this tab."
+    : "This draft stays in this tab. Sign-in will be required to book or place an order.";
+  if (isSample) updateMap(sampleDelivery.origin, sampleDelivery.destination);
+}
+
+function planButton(type) {
+  return document.querySelector(`[data-plan="${type === "sample" ? "delivery" : type}"]`);
 }
 
 function renderDrafts() {
@@ -72,16 +100,25 @@ function renderDrafts() {
     row.className = "draft";
     const description = document.createElement("span");
     description.textContent = `${planTypes[type].summary}: ${draft.detail}`;
-    if (draft.place?.address) {
+    const descriptionDetail = draft.mission
+      ? draft.mission.origin.name + " → " + draft.mission.destination.name + " · " + draft.mission.timing
+      : draft.place?.address;
+    if (descriptionDetail) {
       const address = document.createElement("small");
-      address.textContent = draft.place.address;
+      address.textContent = descriptionDetail;
       description.append(address);
     }
     const edit = document.createElement("button");
     edit.type = "button";
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", `Edit ${planTypes[type].summary.toLowerCase()}`);
-    edit.addEventListener("click", () => startingPoint ? openPlan(type) : askForLocation(type));
+    edit.addEventListener("click", () => {
+      if (type === "sample") openPlan(type);
+      else if (startingPoint) {
+        updateMap(startingPoint);
+        openPlan(type);
+      } else askForLocation(type);
+    });
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Remove";
@@ -90,7 +127,7 @@ function renderDrafts() {
       drafts.delete(type);
       persistDrafts();
       renderDrafts();
-      document.querySelector(`[data-plan="${type}"]`).focus();
+      planButton(type).focus();
     });
     const actions = document.createElement("div");
     actions.className = "draft-actions";
@@ -107,19 +144,30 @@ for (const button of document.querySelectorAll("[data-plan]")) {
 document.querySelector("#close-dialog").addEventListener("click", () => dialog.close());
 dialog.addEventListener("close", tripSearch.reset);
 planInput.addEventListener("input", () => planInput.setCustomValidity(""));
+sampleTiming.addEventListener("input", () => sampleTiming.setCustomValidity(""));
 document.querySelector("#plan-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const detail = planInput.value.trim();
   if (!detail) {
-    planInput.setCustomValidity("Enter a destination or item to save a draft.");
+    planInput.setCustomValidity("Fill in this field to save a draft.");
     planInput.reportValidity();
     return;
   }
-  drafts.set(selectedPlan, { detail, place: selectedPlan === "trip" ? selectedDestination : null });
+  const draft = { detail, place: selectedPlan === "trip" ? selectedDestination : null };
+  if (selectedPlan === "sample") {
+    const timing = sampleTiming.value.trim();
+    if (!timing) {
+      sampleTiming.setCustomValidity("Enter delivery timing.");
+      sampleTiming.reportValidity();
+      return;
+    }
+    draft.mission = createSampleMission(detail, timing);
+  }
+  drafts.set(selectedPlan, draft);
   persistDrafts();
   renderDrafts();
   dialog.close();
-  document.querySelector(`[data-plan="${selectedPlan}"]`).focus();
+  planButton(selectedPlan).focus();
 });
 
 renderDrafts();
@@ -225,6 +273,7 @@ const originSearch = createPlaceSearch({
 
 function askForLocation(type = null) {
   pendingPlan = type;
+  sampleOption.hidden = type !== "delivery";
   originInput.value = "";
   originSearch.reset();
   setLocationBusy(false);
@@ -282,6 +331,13 @@ useLocation.addEventListener("click", requestDeviceLocation);
 
 locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
+document.querySelector("#sample-pickup").textContent = sampleDelivery.origin.name;
+document.querySelector("#sample-dropoff").textContent = sampleDelivery.destination.name;
+document.querySelector("#use-sample-delivery").addEventListener("click", () => {
+  pendingPlan = null;
+  locationDialog.close();
+  openPlan("sample");
+});
 document.querySelector("#cancel-location").addEventListener("click", () => locationDialog.close());
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
 coverageDialog.addEventListener("close", () => askForLocation(pendingPlan));

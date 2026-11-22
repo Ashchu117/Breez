@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=5">
+  <link rel="stylesheet" href="/static/breez.css?v=6">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=7"></script>
+  <script type="module" src="/static/home.js?v=8"></script>
 </head>
 <body>
   <header class="site-header">
@@ -71,6 +71,7 @@
     <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">
     <ul class="place-results" id="origin-results" role="listbox" aria-label="Starting point suggestions" hidden></ul>
     <p class="search-status" id="origin-status" role="status"></p>
+    <p class="sample-option" id="sample-option" hidden><button class="text-button" id="use-sample-delivery" type="button">Try a sample delivery</button></p>
     <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
   </dialog>
   <dialog id="coverage-dialog" role="alertdialog" aria-labelledby="coverage-title" aria-describedby="coverage-note">
@@ -84,6 +85,10 @@
         <h2 id="dialog-title"></h2>
         <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
       </div>
+      <dl id="sample-stops" class="sample-stops" hidden>
+        <div><dt>Pickup</dt><dd id="sample-pickup"></dd></div>
+        <div><dt>Drop-off</dt><dd id="sample-dropoff"></dd></div>
+      </dl>
       <label for="plan-detail" id="detail-label"></label>
       <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
       <div id="trip-search">
@@ -92,7 +97,11 @@
         <p class="form-note distance-note" id="distance-note">Distances are straight-line estimates.</p>
         <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
       </div>
-      <p class="form-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
+      <div id="sample-timing-field" class="sample-timing" hidden>
+        <label for="sample-timing">Delivery timing</label>
+        <input id="sample-timing" maxlength="120" disabled>
+      </div>
+      <p class="form-note" id="plan-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
       <button class="save" type="submit">Save draft</button>
     </form>
   </dialog>

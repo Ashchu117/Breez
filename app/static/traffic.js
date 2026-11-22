@@ -41,8 +41,40 @@ export function startMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
   let center = floridaPoly;
   let markers = [];
+  let sampleMarkers = [];
+  let sampleBounds;
   let pending;
   let ready = false;
+
+  function moveToArea() {
+    if (sampleBounds) {
+      const mobile = window.matchMedia("(max-width: 760px)").matches;
+      map.fitBounds(sampleBounds, {
+        padding: mobile ? { top: 88, right: 52, bottom: 112, left: 52 } : 110,
+        maxZoom: 10,
+      });
+    } else map.easeTo(viewAt(center));
+  }
+
+  function markSampleStops(origin, destination) {
+    for (const marker of sampleMarkers) marker.remove();
+    sampleMarkers = [];
+    sampleBounds = undefined;
+    if (!destination) return;
+
+    sampleBounds = new maplibregl.LngLatBounds();
+    for (const [label, point] of [["Pickup", origin], ["Drop-off", destination]]) {
+      const coords = [point.lon, point.lat];
+      const marker = document.createElement("span");
+      marker.className = "sample-stop";
+      marker.textContent = label;
+      marker.title = point.name;
+      marker.setAttribute("role", "img");
+      marker.setAttribute("aria-label", label + ": " + point.name);
+      sampleMarkers.push(new maplibregl.Marker({ element: marker }).setLngLat(coords).addTo(map));
+      sampleBounds.extend(coords);
+    }
+  }
 
   function clearMarkers() {
     for (const marker of markers) marker.remove();
@@ -102,17 +134,18 @@ export function startMap() {
   map.once("load", () => {
     ready = true;
     recenter.hidden = false;
-    recenter.addEventListener("click", () => map.easeTo(viewAt(center)));
+    recenter.addEventListener("click", moveToArea);
     refreshTraffic();
     window.setInterval(refreshTraffic, 60_000);
     document.addEventListener("visibilitychange", refreshTraffic);
   });
 
-  return (point) => {
+  return (point, sampleDestination) => {
     center = point;
     title.textContent = point.area ? point.area + " air traffic" : "Air traffic near your start";
     map.getContainer().setAttribute("aria-label", title.textContent + " map");
-    map.easeTo(viewAt(center));
+    markSampleStops(point, sampleDestination);
+    moveToArea();
     pending?.abort();
     pending = undefined;
     clearMarkers();

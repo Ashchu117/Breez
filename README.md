@@ -29,6 +29,10 @@ Breez asks for a starting point when someone starts a trip or food order. Choose
 
 The [Photon demo](https://github.com/komoot/photon#demo-server) is for light usage. Photon is Apache-2.0; its OpenStreetMap data retains ODbL attribution. Results preserve distinct branches. The two [LoveBird locations](https://www.lovebirdeats.com/) are provided locally because the demo index only returns the Lakeland branch. The Winter Haven coordinate is a [U.S. Census Geocoder](https://geocoding.geo.census.gov/geocoder/) address estimate.
 
+## Hackathon demo delivery
+
+Choose **Order food → Try a sample delivery** to skip location sharing. The preset uses two fictional hubs in Lakeland and Winter Haven. Review the stops, edit the cargo and timing, then save a sample draft. Breez draws pickup and drop-off pins and stores the sample in the current browser tab, alongside any regular drafts. The sample mission has `mode`, `source`, `origin`, `destination`, `cargo`, and `timing` fields for the next intake step. Route checks and the concierge are still to be connected.
+
 ## Homepage data and licensing
 
 Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. Booking and checkout will require sign-in once those flows are implemented.
