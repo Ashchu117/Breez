@@ -476,8 +476,9 @@ const foodOrder = createFoodOrder({
   onRoute: showRoute,
   onSave(mission) {
     const previous = drafts.get("delivery");
-    const preview = sameLocation(previous?.mission?.origin, mission.origin) &&
-      sameLocation(previous.mission.destination, mission.destination) ? previous.preview : null;
+    const sameDropoff = previous?.mission?.destination === null ||
+      sameLocation(previous?.mission?.destination, mission.destination);
+    const preview = sameLocation(previous?.mission?.origin, mission.origin) && sameDropoff ? previous.preview : null;
     drafts.set("delivery", { detail: mission.origin.name, mission, preview });
     persistDrafts();
     renderDrafts();
