@@ -41,38 +41,38 @@ export function startMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
   let center = floridaPoly;
   let markers = [];
-  let sampleMarkers = [];
-  let sampleBounds;
+  let deliveryMarkers = [];
+  let deliveryBounds;
   let pending;
   let ready = false;
 
   function moveToArea() {
-    if (sampleBounds) {
+    if (deliveryBounds) {
       const mobile = window.matchMedia("(max-width: 760px)").matches;
-      map.fitBounds(sampleBounds, {
+      map.fitBounds(deliveryBounds, {
         padding: mobile ? { top: 88, right: 52, bottom: 112, left: 52 } : 110,
         maxZoom: 10,
       });
     } else map.easeTo(viewAt(center));
   }
 
-  function markSampleStops(origin, destination) {
-    for (const marker of sampleMarkers) marker.remove();
-    sampleMarkers = [];
-    sampleBounds = undefined;
+  function markDeliveryStops(origin, destination) {
+    for (const marker of deliveryMarkers) marker.remove();
+    deliveryMarkers = [];
+    deliveryBounds = undefined;
     if (!destination) return;
 
-    sampleBounds = new maplibregl.LngLatBounds();
+    deliveryBounds = new maplibregl.LngLatBounds();
     for (const [label, point] of [["Pickup", origin], ["Drop-off", destination]]) {
       const coords = [point.lon, point.lat];
       const marker = document.createElement("span");
-      marker.className = "sample-stop";
+      marker.className = "delivery-stop";
       marker.textContent = label;
       marker.title = point.name;
       marker.setAttribute("role", "img");
       marker.setAttribute("aria-label", label + ": " + point.name);
-      sampleMarkers.push(new maplibregl.Marker({ element: marker }).setLngLat(coords).addTo(map));
-      sampleBounds.extend(coords);
+      deliveryMarkers.push(new maplibregl.Marker({ element: marker }).setLngLat(coords).addTo(map));
+      deliveryBounds.extend(coords);
     }
   }
 
@@ -140,11 +140,11 @@ export function startMap() {
     document.addEventListener("visibilitychange", refreshTraffic);
   });
 
-  return (point, sampleDestination) => {
+  return (point, deliveryDestination) => {
     center = point;
     title.textContent = point.area ? point.area + " air traffic" : "Air traffic near your start";
     map.getContainer().setAttribute("aria-label", title.textContent + " map");
-    markSampleStops(point, sampleDestination);
+    markDeliveryStops(point, deliveryDestination);
     moveToArea();
     pending?.abort();
     pending = undefined;

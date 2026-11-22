@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=6">
+  <link rel="stylesheet" href="/static/breez.css?v=7">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=8"></script>
+  <script type="module" src="/static/home.js?v=9"></script>
 </head>
 <body>
   <header class="site-header">
@@ -29,7 +29,7 @@
         </button>
         <button class="choice" type="button" data-plan="delivery" aria-haspopup="dialog">
           <span class="choice-icon choice-package" aria-hidden="true"><span></span></span>
-          <span><strong>Order food</strong><small>Start with an item</small></span>
+          <span><strong>Order food</strong><small>Choose a restaurant</small></span>
           <span class="choice-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -60,7 +60,7 @@
       <h2 id="location-title">Where are you starting?</h2>
       <button class="close" id="cancel-location" type="button" aria-label="Cancel starting point">×</button>
     </div>
-    <p class="form-note">Choose a starting point in Florida.</p>
+    <p class="form-note" id="location-instructions">Choose a starting point in Florida.</p>
     <div class="location-options">
       <button class="save" id="use-location" type="button" aria-describedby="location-permission location-note" autofocus>Use my location</button>
       <button class="text-button" id="use-campus" type="button">Florida Polytechnic University</button>
@@ -71,7 +71,6 @@
     <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">
     <ul class="place-results" id="origin-results" role="listbox" aria-label="Starting point suggestions" hidden></ul>
     <p class="search-status" id="origin-status" role="status"></p>
-    <p class="sample-option" id="sample-option" hidden><button class="text-button" id="use-sample-delivery" type="button">Try a sample delivery</button></p>
     <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
   </dialog>
   <dialog id="coverage-dialog" role="alertdialog" aria-labelledby="coverage-title" aria-describedby="coverage-note">
@@ -85,10 +84,6 @@
         <h2 id="dialog-title"></h2>
         <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
       </div>
-      <dl id="sample-stops" class="sample-stops" hidden>
-        <div><dt>Pickup</dt><dd id="sample-pickup"></dd></div>
-        <div><dt>Drop-off</dt><dd id="sample-dropoff"></dd></div>
-      </dl>
       <label for="plan-detail" id="detail-label"></label>
       <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
       <div id="trip-search">
@@ -97,13 +92,59 @@
         <p class="form-note distance-note" id="distance-note">Distances are straight-line estimates.</p>
         <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
       </div>
-      <div id="sample-timing-field" class="sample-timing" hidden>
-        <label for="sample-timing">Delivery timing</label>
-        <input id="sample-timing" maxlength="120" disabled>
-      </div>
       <p class="form-note" id="plan-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
       <button class="save" type="submit">Save draft</button>
     </form>
+  </dialog>
+  <dialog id="food-dialog" aria-labelledby="food-title">
+    <div class="dialog-header">
+      <h2 id="food-title" tabindex="-1">Order food</h2>
+      <button class="close" id="close-food" type="button" aria-label="Close food order">×</button>
+    </div>
+    <button class="text-button food-back" id="food-back" type="button" hidden>← Back</button>
+    <section data-food-step="chains" hidden>
+      <p class="form-note" id="food-dropoff"></p>
+      <ul class="food-choices" id="supported-chains"></ul>
+    </section>
+    <section data-food-step="branches" hidden>
+      <form class="restaurant-search" id="restaurant-search">
+        <div>
+          <label for="restaurant-query">Search a Florida city or ZIP code</label>
+          <input id="restaurant-query" type="search" maxlength="80" autocomplete="off">
+        </div>
+        <button class="text-button" type="submit">Search</button>
+      </form>
+      <p class="form-note" id="change-store-note" hidden>Choosing a different location starts a new cart.</p>
+      <p class="search-status" id="restaurant-status" role="status"></p>
+      <ul class="food-choices restaurant-results" id="restaurant-results"></ul>
+      <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+    </section>
+    <section data-food-step="menu" hidden>
+      <p class="form-note" id="menu-location"></p>
+      <p class="form-note">This demo menu uses placeholder items.</p>
+      <ul class="food-choices" id="mock-menu"></ul>
+      <button class="save" id="review-order" type="button">Review order</button>
+    </section>
+    <form id="customize-food" data-food-step="item" hidden>
+      <fieldset id="food-options"><legend>Custom options</legend></fieldset>
+      <label for="food-quantity">Quantity</label>
+      <input id="food-quantity" name="quantity" type="number" min="1" max="9" value="1" required>
+      <button class="save" type="submit">Add to cart</button>
+    </form>
+    <section data-food-step="cart" hidden>
+      <dl class="order-stops">
+        <div><dt>Pickup</dt><dd id="cart-pickup"></dd></div>
+        <div><dt>Drop-off</dt><dd id="cart-dropoff"></dd></div>
+      </dl>
+      <ul class="food-cart" id="food-cart"></ul>
+      <label for="delivery-timing">Delivery timing</label>
+      <select id="delivery-timing">
+        <option>As soon as possible</option>
+        <option>Within one hour</option>
+      </select>
+      <p class="form-note">This is a demo order. Saving keeps a draft in this tab without sending an order to the restaurant.</p>
+      <button class="save" id="save-food-order" type="button">Save order draft</button>
+    </section>
   </dialog>
 </body>
 </html>

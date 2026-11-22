@@ -216,7 +216,7 @@ a { color: inherit; }
 
 .aircraft-stationary { width: 8px; height: 8px; clip-path: circle(); }
 
-.sample-stop {
+.delivery-stop {
   z-index: 1;
   padding: 0.38rem 0.7rem;
   border: 1px solid #d0fb88;
@@ -276,8 +276,31 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 #location-dialog label { display: block; margin-top: 1rem; }
 .location-options { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
 .location-options .save { margin: 0; }
-.sample-option { margin: 1rem 0 0; }
-.sample-stops {
+.food-back { margin-bottom: 0.6rem; }
+.food-choices, .food-cart { display: grid; gap: 0.45rem; margin: 0.8rem 0; padding: 0; list-style: none; }
+.food-choices button {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: #101a16;
+  color: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.food-choices button:hover { background: #283b31; }
+.food-choices small, .food-cart small { display: block; margin-top: 0.2rem; color: var(--muted); }
+.restaurant-search { display: flex; align-items: end; gap: 0.55rem; margin-top: 0.55rem; }
+.restaurant-search div { flex: 1; min-width: 0; }
+.restaurant-results { max-height: 15rem; overflow: auto; }
+#food-options { display: grid; gap: 0.55rem; margin: 0.5rem 0 1rem; border: 1px solid var(--border); border-radius: 0.55rem; }
+#food-options label { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
+#food-options input { width: auto; margin: 0; accent-color: var(--accent); }
+#food-quantity { width: 6rem; margin-bottom: 1rem; }
+.food-cart li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); }
+#delivery-timing { display: block; margin-top: 0.35rem; padding: 0.5rem; color: inherit; background: #101715; border: 1px solid #5a6d61; border-radius: 0.4rem; }
+.order-stops {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
@@ -287,10 +310,9 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
   border-radius: 0.65rem;
   background: #101a16;
 }
-.sample-stops[hidden] { display: none; }
-.sample-stops dt { color: var(--muted); font-size: 0.78rem; }
-.sample-stops dd { margin: 0.2rem 0 0; font-size: 0.9rem; font-weight: 650; }
-.sample-timing { margin-top: 1rem; }
+.order-stops dt { color: var(--muted); font-size: 0.78rem; }
+.order-stops dd { margin: 0.2rem 0 0; font-size: 0.9rem; font-weight: 650; overflow-wrap: anywhere; }
+
 .location-note:empty, .search-status:empty { display: none; }
 #location-permission[data-state="granted"] { color: var(--accent); }
 .search-status { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.83rem; }

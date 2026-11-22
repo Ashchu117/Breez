@@ -1,19 +1,16 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=5";
+import { createPlaceSearch, isPlace } from "./places.js?v=6";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=2";
-import { createSampleMission, sampleDelivery } from "./sample-delivery.js?v=1";
+import { startMap } from "./traffic.js?v=3";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=1";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
   delivery: { title: "Plan a delivery", label: "What would you like to order?", placeholder: "Enter an item", summary: "Delivery draft" },
-  sample: { title: "Sample delivery", label: "Cargo", placeholder: "Enter a package", summary: "Sample delivery draft" },
 };
 const draftKey = "breez.planDrafts";
 const drafts = loadDrafts();
 const dialog = document.querySelector("#plan-dialog");
 const planInput = document.querySelector("#plan-detail");
-const sampleTiming = document.querySelector("#sample-timing");
-const sampleOption = document.querySelector("#sample-option");
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 let selectedPlan;
@@ -35,12 +32,8 @@ function loadDrafts() {
       const value = saved?.[type];
       const detail = typeof value === "string" ? value : value?.detail;
       if (typeof detail !== "string" || !detail.trim() || detail.length > 240) return [];
-      if (type === "sample") {
-        const timing = value?.mission?.timing;
-        if (typeof timing !== "string" || !timing.trim() || timing.length > 120) return [];
-        return [[type, { detail, mission: createSampleMission(detail, timing) }]];
-      }
-      return [[type, { detail, place: isPlace(value?.place) ? value.place : null }]];
+      const mission = type === "delivery" ? readFoodMission(value?.mission) : null;
+      return [[type, { detail, place: isPlace(value?.place) ? value.place : null, mission }]];
     }));
   } catch {
     return new Map();
@@ -49,13 +42,21 @@ function loadDrafts() {
 
 function persistDrafts() {
   try {
-    sessionStorage.setItem(draftKey, JSON.stringify(Object.fromEntries(drafts)));
+    const saved = Object.fromEntries(drafts);
+    if (saved.delivery?.mission?.destination?.kind === "device") {
+      saved.delivery = { ...saved.delivery, mission: { ...saved.delivery.mission, destination: null } };
+    }
+    sessionStorage.setItem(draftKey, JSON.stringify(saved));
   } catch {
     // Drafts remain available until the page closes if tab storage is disabled.
   }
 }
 
 function openPlan(type) {
+  if (type === "delivery") {
+    foodOrder.open(startingPoint, drafts.get(type)?.mission);
+    return;
+  }
   selectedPlan = type;
   const plan = planTypes[type];
   document.querySelector("#dialog-title").textContent = plan.title;
@@ -63,7 +64,7 @@ function openPlan(type) {
   planInput.placeholder = plan.placeholder;
   const draft = drafts.get(type);
   selectedDestination = draft?.place ?? null;
-  configureSampleFields(type, draft);
+  planInput.value = draft?.detail ?? "";
   planInput.setCustomValidity("");
   tripSearch.setEnabled(type === "trip");
   document.querySelector("#trip-search").hidden = type !== "trip";
@@ -73,23 +74,8 @@ function openPlan(type) {
   dialog.showModal();
 }
 
-function configureSampleFields(type, draft) {
-  const isSample = type === "sample";
-  planInput.value = draft?.detail ?? (isSample ? sampleDelivery.cargo : "");
-  sampleTiming.value = isSample ? draft?.mission?.timing ?? sampleDelivery.timing : "";
-  sampleTiming.setCustomValidity("");
-  sampleTiming.disabled = !isSample;
-  sampleTiming.required = isSample;
-  document.querySelector("#sample-stops").hidden = !isSample;
-  document.querySelector("#sample-timing-field").hidden = !isSample;
-  document.querySelector("#plan-note").textContent = isSample
-    ? "These stops are fictional. The draft stays in this tab."
-    : "This draft stays in this tab. Sign-in will be required to book or place an order.";
-  if (isSample) updateMap(sampleDelivery.origin, sampleDelivery.destination);
-}
-
 function planButton(type) {
-  return document.querySelector(`[data-plan="${type === "sample" ? "delivery" : type}"]`);
+  return document.querySelector(`[data-plan="${type}"]`);
 }
 
 function renderDrafts() {
@@ -101,7 +87,7 @@ function renderDrafts() {
     const description = document.createElement("span");
     description.textContent = `${planTypes[type].summary}: ${draft.detail}`;
     const descriptionDetail = draft.mission
-      ? draft.mission.origin.name + " → " + draft.mission.destination.name + " · " + draft.mission.timing
+      ? draft.mission.origin.address + " · " + draft.mission.items.map((item) => `${item.quantity} × ${item.name}`).join(", ")
       : draft.place?.address;
     if (descriptionDetail) {
       const address = document.createElement("small");
@@ -113,7 +99,7 @@ function renderDrafts() {
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", `Edit ${planTypes[type].summary.toLowerCase()}`);
     edit.addEventListener("click", () => {
-      if (type === "sample") openPlan(type);
+      if (draft.mission?.destination) foodOrder.open(draft.mission.destination, draft.mission);
       else if (startingPoint) {
         updateMap(startingPoint);
         openPlan(type);
@@ -144,7 +130,7 @@ for (const button of document.querySelectorAll("[data-plan]")) {
 document.querySelector("#close-dialog").addEventListener("click", () => dialog.close());
 dialog.addEventListener("close", tripSearch.reset);
 planInput.addEventListener("input", () => planInput.setCustomValidity(""));
-sampleTiming.addEventListener("input", () => sampleTiming.setCustomValidity(""));
+
 document.querySelector("#plan-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const detail = planInput.value.trim();
@@ -154,15 +140,6 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     return;
   }
   const draft = { detail, place: selectedPlan === "trip" ? selectedDestination : null };
-  if (selectedPlan === "sample") {
-    const timing = sampleTiming.value.trim();
-    if (!timing) {
-      sampleTiming.setCustomValidity("Enter delivery timing.");
-      sampleTiming.reportValidity();
-      return;
-    }
-    draft.mission = createSampleMission(detail, timing);
-  }
   drafts.set(selectedPlan, draft);
   persistDrafts();
   renderDrafts();
@@ -181,6 +158,14 @@ const locationButton = document.querySelector("#change-origin");
 const useLocation = document.querySelector("#use-location");
 const canLocate = window.isSecureContext && Boolean(navigator.geolocation);
 const updateMap = startMap();
+const foodOrder = createFoodOrder({
+  onSave(mission) {
+    drafts.set("delivery", { detail: mission.origin.name, mission });
+    persistDrafts();
+    renderDrafts();
+    updateMap(mission.origin, mission.destination);
+  },
+});
 let locationAttempt = 0;
 let pendingPlan = null;
 let locationBusy = false;
@@ -273,10 +258,12 @@ const originSearch = createPlaceSearch({
 
 function askForLocation(type = null) {
   pendingPlan = type;
-  sampleOption.hidden = type !== "delivery";
   originInput.value = "";
   originSearch.reset();
   setLocationBusy(false);
+  document.querySelector("#location-title").textContent = type === "delivery" ? "Where should we deliver?" : "Where are you starting?";
+  document.querySelector("#location-instructions").textContent = type === "delivery"
+    ? "Choose a drop-off point in Florida." : "Choose a starting point in Florida.";
   locationNote.textContent = !window.isSecureContext
     ? "Device location requires HTTPS. You can search below."
     : canLocate ? "" : "This browser cannot provide device location. You can search below.";
@@ -315,7 +302,7 @@ function requestDeviceLocation() {
     watchId = navigator.geolocation.watchPosition(({ coords }) => {
       if (!isCurrent()) return;
       showPermission("granted");
-      setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude });
+      setStartingPoint({ name: "Current location", lat: coords.latitude, lon: coords.longitude, kind: "device" });
     }, (error) => {
       if (!isCurrent() || error.code !== 1) return;
       fail(permissionState === "granted"
@@ -331,13 +318,6 @@ useLocation.addEventListener("click", requestDeviceLocation);
 
 locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
-document.querySelector("#sample-pickup").textContent = sampleDelivery.origin.name;
-document.querySelector("#sample-dropoff").textContent = sampleDelivery.destination.name;
-document.querySelector("#use-sample-delivery").addEventListener("click", () => {
-  pendingPlan = null;
-  locationDialog.close();
-  openPlan("sample");
-});
 document.querySelector("#cancel-location").addEventListener("click", () => locationDialog.close());
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
 coverageDialog.addEventListener("close", () => askForLocation(pendingPlan));

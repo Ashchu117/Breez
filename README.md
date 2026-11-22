@@ -29,9 +29,13 @@ Breez asks for a starting point when someone starts a trip or food order. Choose
 
 The [Photon demo](https://github.com/komoot/photon#demo-server) is for light usage. Photon is Apache-2.0; its OpenStreetMap data retains ODbL attribution. Results preserve distinct branches. The two [LoveBird locations](https://www.lovebirdeats.com/) are provided locally because the demo index only returns the Lakeland branch. The Winter Haven coordinate is a [U.S. Census Geocoder](https://geocoding.geo.census.gov/geocoder/) address estimate.
 
-## Hackathon demo delivery
+## Food order demo
 
-Choose **Order food → Try a sample delivery** to skip location sharing. The preset uses two fictional hubs in Lakeland and Winter Haven. Review the stops, edit the cargo and timing, then save a sample draft. Breez draws pickup and drop-off pins and stores the sample in the current browser tab, alongside any regular drafts. The sample mission has `mode`, `source`, `origin`, `destination`, `cargo`, and `timing` fields for the next intake step. Route checks and the concierge are still to be connected.
+Choose **Order food**, set a Florida drop-off point, then pick McDonald’s, Wendy’s, or Burger King and a mapped restaurant. Browse the mock menu, customize placeholder items, and review and save the order draft. The map marks the restaurant pickup and delivery drop-off. Checkout and restaurant integrations are outside the demo.
+
+Restaurant search uses Photon’s OpenStreetMap fast-food data through the same public demo service as place search. It filters results by chain and the Florida boundary. Local fallback addresses are from the [McDonald’s](https://www.mcdonalds.com/us/en-us/restaurant-directory/florida/lakeland.html), [Wendy’s](https://locations.wendys.com/united-states/fl/lakeland), and [Burger King](https://www.bk.com/store-locator) locators with Census address estimates. Search coverage depends on mapped branches.
+
+The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. The planned concierge will populate this same draft from plain-language requests and ask for missing details. Exact device coordinates are omitted from saved tab drafts.
 
 ## Homepage data and licensing
 

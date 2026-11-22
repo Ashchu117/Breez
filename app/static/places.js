@@ -15,7 +15,7 @@ const deerfieldStreet = {
 const deerfieldPattern = /^(?:little harbor way|(?:ne|northeast|north east) 11th way)(?=$|[ ,])(?:[\s,]+(?:deerfield beach|florida|fl|33441))*$/i;
 const cache = new Map();
 
-function normalized(value) {
+export function normalized(value) {
   return value.normalize("NFD").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
@@ -26,14 +26,14 @@ export function isPlace(place) {
     && Number.isFinite(place.lon) && Math.abs(place.lon) <= 180;
 }
 
-function distanceMiles(from, to) {
+export function distanceMiles(from, to) {
   const rad = (degrees) => degrees * Math.PI / 180;
   const a = Math.sin(rad(to.lat - from.lat) / 2) ** 2
     + Math.cos(rad(from.lat)) * Math.cos(rad(to.lat)) * Math.sin(rad(to.lon - from.lon) / 2) ** 2;
   return 3958.76 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-function distanceLabel(from, to) {
+export function distanceLabel(from, to) {
   const miles = distanceMiles(from, to);
   if (miles < 0.1) return "<0.1 mi";
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: miles < 10 ? 1 : 0 }).format(miles) + " mi";
@@ -81,11 +81,11 @@ function mergePlaces(places) {
   return unique.slice(0, 8);
 }
 
-async function photonPlaces(query, bias, houseNumber, signal) {
+export async function photonPlaces(query, bias, houseNumber, signal, options = {}) {
   const url = new URL(PHOTON_URL);
   url.search = new URLSearchParams({
     q: query, limit: "12", lat: bias.lat, lon: bias.lon, zoom: "8",
-    bbox: floridaBounds.join(","), countrycode: "US",
+    bbox: floridaBounds.join(","), countrycode: "US", ...options,
   });
   const response = await fetch(url, { referrerPolicy: "no-referrer", signal });
   if (!response.ok) throw new Error("Place search unavailable");
