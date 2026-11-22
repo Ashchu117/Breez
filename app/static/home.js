@@ -17,6 +17,8 @@ const tripProgress = document.querySelector("#trip-simulation-progress");
 let tripRequest;
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
+const draftStatus = document.querySelector("#draft-status");
+let draftRequest;
 let selectedPlan;
 let selectedDestination;
 let startingPoint = null;
@@ -43,7 +45,12 @@ function loadDrafts() {
       const detail = typeof value === "string" ? value : value?.detail;
       if (typeof detail !== "string" || !detail.trim() || detail.length > 240) return [];
       const mission = type === "delivery" ? readFoodMission(value?.mission) : null;
-      return [[type, { detail, place: isPlace(value?.place) ? value.place : null, mission }]];
+      const place = isPlace(value?.place) ? value.place : null;
+      const route = value?.preview;
+      const preview = type === "trip" && place && ["direct", "detour"].includes(route?.candidate)
+        ? { candidate: route.candidate, origin: isPlace(route.origin) && route.origin.kind !== "device" ? route.origin : null }
+        : null;
+      return [[type, { detail, place, mission, preview }]];
     }));
   } catch {
     return new Map();
@@ -107,9 +114,15 @@ function renderDrafts() {
     }
     const edit = document.createElement("button");
     edit.type = "button";
-    edit.textContent = "Edit";
-    edit.setAttribute("aria-label", `Edit ${planTypes[type].summary.toLowerCase()}`);
+    edit.textContent = draft.preview ? "Open" : "Edit";
+    edit.setAttribute("aria-label", `${edit.textContent} ${planTypes[type].summary.toLowerCase()}`);
     edit.addEventListener("click", () => {
+      if (draft.preview) {
+        if (draft.preview.origin) restoreTripDraft(draft, draft.preview.origin);
+        else askForLocation("trip", draft);
+        return;
+      }
+      cancelDraftRestore();
       if (draft.mission?.destination) foodOrder.open(draft.mission.destination, draft.mission);
       else if (startingPoint) {
         updateMap(startingPoint);
@@ -121,6 +134,7 @@ function renderDrafts() {
     remove.textContent = "Remove";
     remove.setAttribute("aria-label", `Remove ${planTypes[type].summary.toLowerCase()}`);
     remove.addEventListener("click", () => {
+      cancelDraftRestore();
       drafts.delete(type);
       persistDrafts();
       renderDrafts();
@@ -182,7 +196,12 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     planInput.reportValidity();
     return;
   }
-  const draft = { detail, place: selectedPlan === "trip" ? selectedDestination : null };
+  const previous = drafts.get(selectedPlan);
+  const sameLocation = (a, b) => a && b && a.lat === b.lat && a.lon === b.lon;
+  const preview = sameLocation(previous?.place, selectedDestination) &&
+    (sameLocation(previous.preview?.origin, startingPoint) || startingPoint?.kind === "device" && previous.preview?.origin === null)
+    ? previous.preview : null;
+  const draft = { detail, place: selectedDestination, preview };
   drafts.set(selectedPlan, draft);
   persistDrafts();
   renderDrafts();
@@ -213,6 +232,8 @@ const briefingText = document.querySelector("#briefing-text");
 const approveRoute = document.querySelector("#approve-route");
 const holdRoute = document.querySelector("#hold-route");
 const reviewStatus = document.querySelector("#review-status");
+const saveTripRoute = document.querySelector("#save-trip-route");
+const saveTripStatus = document.querySelector("#save-trip-status");
 const reviews = new Map();
 const briefings = new Map();
 let selectedRoute;
@@ -222,7 +243,41 @@ let directRoute;
 let alternateRoute;
 let detourRequest;
 
-function showRoute(mission, result) {
+function cancelDraftRestore() {
+  draftRequest?.abort();
+  draftRequest = undefined;
+  draftStatus.textContent = "";
+}
+
+async function restoreTripDraft(draft, origin) {
+  if (draftRequest) return;
+  const controller = new AbortController();
+  draftRequest = controller;
+  draftStatus.textContent = "Checking your saved trip route…";
+  const mission = { mode: "trip", origin, destination: draft.place };
+  try {
+    const result = await simulateMission(mission, controller.signal);
+    let detour;
+    let notice;
+    if (draft.preview.candidate === "detour") {
+      if (result.status === "blocked") {
+        detour = await simulateMission(mission, controller.signal, { detour: true });
+        if (!detour) notice = "The saved detour is unavailable in the current check. The direct route is shown for review.";
+      } else notice = "The direct route now passes the FAA snapshot check. The saved detour is no longer needed.";
+    }
+    if (controller.signal.aborted) return;
+    startingPoint = origin;
+    locationButton.textContent = origin.name;
+    showRoute(mission, result, { detour, notice });
+  } catch {
+    if (!controller.signal.aborted) draftStatus.textContent = "Couldn’t reopen the trip route. Your draft is still saved. Try again.";
+  } finally {
+    if (draftRequest === controller) draftRequest = undefined;
+  }
+}
+
+function showRoute(mission, result, { detour, notice = "" } = {}) {
+  cancelDraftRestore();
   detourRequest?.abort();
   detourRequest = undefined;
   routeMission = mission;
@@ -232,10 +287,13 @@ function showRoute(mission, result) {
   alternateRoute = undefined;
   findDetour.hidden = result.status !== "blocked";
   findDetour.disabled = false;
-  detourStatus.textContent = "";
+  detourStatus.textContent = notice;
   routeChoiceLabel.hidden = true;
   routeChoice.value = "direct";
-  renderRoute(mission, result);
+  saveTripRoute.hidden = mission.mode !== "trip";
+  if (detour) selectDetour(detour);
+  else renderRoute(mission, result);
+  routeSummary.scrollTop = 0;
   document.querySelector("#route-title").focus();
 }
 
@@ -277,11 +335,29 @@ function renderRoute(mission, result) {
   briefingRequest?.abort();
   briefingRequest = undefined;
   selectedRoute = result;
+  saveTripStatus.textContent = "";
   briefingText.textContent = briefings.get(result) ?? "";
   briefingButton.hidden = briefings.has(result);
   briefingButton.disabled = false;
   renderReview();
 }
+
+saveTripRoute.addEventListener("click", () => {
+  if (routeMission?.mode !== "trip" || !selectedRoute) return;
+  const { origin, destination } = routeMission;
+  drafts.set("trip", {
+    detail: destination.name,
+    place: destination,
+    preview: {
+      candidate: selectedRoute === alternateRoute ? "detour" : "direct",
+      origin: origin.kind === "device" ? null : origin,
+    },
+  });
+  persistDrafts();
+  renderDrafts();
+  saveTripStatus.textContent = selectedRoute === alternateRoute
+    ? "Trip draft saved with the detour." : "Trip draft saved with the direct route.";
+});
 
 function renderReview() {
   const blocked = selectedRoute.status === "blocked";
@@ -344,6 +420,15 @@ briefingButton.addEventListener("click", async () => {
   }
 });
 
+function selectDetour(result) {
+  alternateRoute = result;
+  routeChoice.options[1].textContent = "Shortest detour found · " + routeFormat.format(result.eta_minutes) + " min";
+  routeChoiceLabel.hidden = false;
+  routeChoice.value = "detour";
+  findDetour.hidden = true;
+  renderRoute(routeMission, result);
+}
+
 findDetour.addEventListener("click", async () => {
   if (findDetour.disabled || !routeMission) return;
   const controller = new AbortController();
@@ -357,13 +442,8 @@ findDetour.addEventListener("click", async () => {
       detourStatus.textContent = "No detour found within the search area. Try a different start or destination.";
       return;
     }
-    alternateRoute = result;
-    routeChoice.options[1].textContent = "Shortest detour found · " + routeFormat.format(result.eta_minutes) + " min";
-    routeChoiceLabel.hidden = false;
-    routeChoice.value = "detour";
-    renderRoute(routeMission, result);
+    selectDetour(result);
     routeChoice.focus();
-    findDetour.hidden = true;
     detourStatus.textContent = "Detour shown on the map.";
   } catch (error) {
     if (!controller.signal.aborted) detourStatus.textContent = error.message;
@@ -410,6 +490,7 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
 });
 let locationAttempt = 0;
 let pendingPlan = null;
+let pendingTripDraft = null;
 let locationBusy = false;
 let permissionState;
 let stopDeviceWatch;
@@ -481,8 +562,11 @@ async function setStartingPoint(point) {
   locationButton.textContent = point.name;
   updateMap(point);
   const plan = pendingPlan;
+  const tripDraft = pendingTripDraft;
   pendingPlan = null;
-  if (plan) openPlan(plan);
+  pendingTripDraft = null;
+  if (tripDraft) restoreTripDraft(tripDraft, point);
+  else if (plan) openPlan(plan);
 }
 
 const originSearch = createPlaceSearch({
@@ -498,8 +582,10 @@ const originSearch = createPlaceSearch({
   },
 });
 
-function askForLocation(type = null) {
+function askForLocation(type = null, tripDraft = null) {
+  cancelDraftRestore();
   pendingPlan = type;
+  pendingTripDraft = tripDraft;
   originInput.value = "";
   originSearch.reset();
   setLocationBusy(false);
@@ -562,7 +648,7 @@ locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
 document.querySelector("#cancel-location").addEventListener("click", () => locationDialog.close());
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
-coverageDialog.addEventListener("close", () => askForLocation(pendingPlan));
+coverageDialog.addEventListener("close", () => askForLocation(pendingPlan, pendingTripDraft));
 locationDialog.addEventListener("close", () => {
   cancelDeviceWatch();
   locationAttempt++;

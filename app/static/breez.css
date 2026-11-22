@@ -369,6 +369,8 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .home[data-route-view] .traffic::after { content: none; }
 .home[data-route-view] .map { inset: 0; }
 .route-summary { padding: clamp(1.2rem, 3vw, 2.1rem); border-right: 1px solid var(--border); }
+.route-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+#draft-status:empty, #save-trip-status:empty { display: none; }
 .route-summary h2 { margin: 1.45rem 0 0.7rem; font-size: clamp(1.65rem, 2.6vw, 2.35rem); line-height: 1.03; letter-spacing: -0.045em; }
 .route-status { margin: 0; font-weight: 650; color: #78ead5; }
 .route-summary[data-status="blocked"] .route-status { color: #ffad83; }
@@ -393,6 +395,22 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-summary[data-status="blocked"] #route-line-key { border-top: 3px dashed #ffad83; }
 .cart-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
 .cart-actions .save { margin-top: 0; }
+@media (min-width: 761px) {
+  body:has(.home[data-route-view]) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .home[data-route-view], .home[data-route-view] .traffic { min-height: 0; }
+  .route-summary {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+  .route-summary:focus-visible { outline-offset: -4px; }
+}
 @media (max-width: 760px) {
   .home[data-route-view] { grid-template-columns: minmax(0, 1fr); }
   .home[data-route-view] .traffic { min-height: 26rem; height: min(55svh, 28rem); }
