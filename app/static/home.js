@@ -1,4 +1,4 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=4";
+import { createPlaceSearch, isPlace } from "./places.js?v=5";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=1";
 
@@ -20,7 +20,6 @@ const tripSearch = createPlaceSearch({
   list: document.querySelector("#destination-results"),
   status: document.querySelector("#destination-status"),
   getOrigin: () => startingPoint,
-  floridaOnly: true,
   onSelect: (place) => { selectedDestination = place; },
   onType: () => { selectedDestination = null; },
 });

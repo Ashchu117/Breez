@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/breez.css?v=4">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=4"></script>
+  <script type="module" src="/static/home.js?v=5"></script>
 </head>
 <body>
   <header class="site-header">
@@ -70,7 +70,7 @@
     <input id="origin-search" type="search" placeholder="Enter a city or address" autocomplete="off" maxlength="120">
     <ul class="place-results" id="origin-results" role="listbox" aria-label="Starting point suggestions" hidden></ul>
     <p class="search-status" id="origin-status" role="status"></p>
-    <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+    <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
   </dialog>
   <dialog id="coverage-dialog" role="alertdialog" aria-labelledby="coverage-title" aria-describedby="coverage-note">
     <h2 id="coverage-title">Only Florida is supported right now</h2>
@@ -89,7 +89,7 @@
         <ul class="place-results" id="destination-results" role="listbox" aria-label="Destination suggestions" hidden></ul>
         <p class="search-status" id="destination-status" role="status"></p>
         <p class="form-note distance-note" id="distance-note">Distances are straight-line estimates.</p>
-        <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a></p>
+        <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
       </div>
       <p class="form-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
       <button class="save" type="submit">Save draft</button>
