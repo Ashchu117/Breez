@@ -60,14 +60,14 @@ export function startMap() {
     } else map.easeTo(viewAt(center));
   }
 
-  function markDeliveryStops(origin, destination) {
+  function markStops(origin, destination, labels) {
     for (const marker of deliveryMarkers) marker.remove();
     deliveryMarkers = [];
     deliveryBounds = undefined;
     if (!destination) return;
 
     deliveryBounds = new maplibregl.LngLatBounds();
-    for (const [label, point] of [["Pickup", origin], ["Drop-off", destination]]) {
+    for (const [label, point] of [[labels[0], origin], [labels[1], destination]]) {
       const coords = [point.lon, point.lat];
       const marker = document.createElement("span");
       marker.className = "delivery-stop";
@@ -146,14 +146,14 @@ export function startMap() {
     document.addEventListener("visibilitychange", refreshTraffic);
   });
 
-  return (point, deliveryDestination, result) => {
+  return (point, destination, result, labels = ["Pickup", "Drop-off"]) => {
     deliveryRoute = result;
     map.resize();
     center = point;
     title.textContent = point.area ? point.area + " air traffic" : "Air traffic near your start";
-    map.getContainer().setAttribute("aria-label", result ? "Simulated delivery route map" : title.textContent + " map");
-    recenter.textContent = result ? "Fit delivery route" : "Recenter map";
-    markDeliveryStops(point, deliveryDestination);
+    map.getContainer().setAttribute("aria-label", result ? "Simulated route map" : title.textContent + " map");
+    recenter.textContent = result ? "Fit route" : "Recenter map";
+    markStops(point, destination, labels);
     if (result) for (const coords of routeExtent(result)) deliveryBounds.extend(coords);
     drawRoute?.(result);
     moveToArea();

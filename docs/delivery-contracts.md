@@ -39,6 +39,8 @@ The route engine owns the simulated findings, ETA, and status. A blocked result 
 
 `POST /api/route-simulation` accepts the `RouteRequest` schema. Use `confirmed: true` and supply Florida pickup and drop-off coordinates, cargo, and one of the timing options. The endpoint returns HTTP 422 for a missing field, an unconfirmed mission, a location outside Florida, or identical pickup and drop-off coordinates.
 
+The trip planner uses the same endpoint with `mode: "trip"`, `confirmed: true`, and `origin` and `destination` objects containing `lat` and `lon`. Trip previews use coordinates only. Cargo and timing apply to delivery requests.
+
 The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. The only constraint is a fictional circle in Lakeland. The engine checks whether the segment touches or enters the circle in a local approximation, including at the endpoints. A blocked route has no ETA. The response includes the zone's center and radius for display and uses zero-based indexes to identify affected segments.
 
 In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) passes the simulation. A pickup near 5740 Highway 98 North (`28.12009, -81.97385`) is blocked by the simulated zone. Each coordinate pair is latitude, longitude. Both examples are planning simulations.

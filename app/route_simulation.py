@@ -1,4 +1,4 @@
-"""Simulate a direct delivery candidate against a fictional restriction."""
+"""Simulate a direct route candidate against a fictional restriction."""
 
 from math import asin, cos, hypot, radians, sin, sqrt
 
@@ -6,11 +6,13 @@ from fastapi import APIRouter, HTTPException, Response
 
 from app.florida import is_in_florida
 from app.mission_contracts import (
+    ConfirmedRoute,
     Coordinates,
     RouteFinding,
     RouteRequest,
     RouteResponse,
     SimulatedRestriction,
+    TripRouteRequest,
 )
 
 
@@ -50,14 +52,14 @@ def intersects_restriction(
     return hypot(start_x + nearest * dx, start_y + nearest * dy) <= zone.radius_miles
 
 
-def simulate_route(mission: RouteRequest) -> RouteResponse:
+def simulate_route(mission: ConfirmedRoute) -> RouteResponse:
     start = Coordinates(lat=mission.origin.lat, lon=mission.origin.lon)
     end = Coordinates(lat=mission.destination.lat, lon=mission.destination.lon)
     distance = distance_miles(start, end)
     if distance == 0:
-        raise ValueError("Choose different pickup and drop-off locations.")
+        raise ValueError("Choose different start and end locations.")
     if not is_in_florida(start) or not is_in_florida(end):
-        raise ValueError("Choose a pickup and drop-off in Florida.")
+        raise ValueError("Choose start and end locations in Florida.")
 
     blocked = intersects_restriction(start, end, DEMO_RESTRICTION)
     return RouteResponse(
@@ -75,7 +77,7 @@ def simulate_route(mission: RouteRequest) -> RouteResponse:
 
 
 @router.post("/route-simulation")
-def route_simulation(mission: RouteRequest, response: Response) -> RouteResponse:
+def route_simulation(mission: RouteRequest | TripRouteRequest, response: Response) -> RouteResponse:
     """Evaluate a confirmed mission in the Breez simulation."""
     response.headers["Cache-Control"] = "no-store"
     try:

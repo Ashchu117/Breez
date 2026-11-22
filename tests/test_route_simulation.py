@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from pydantic import ValidationError
 
-from app.mission_contracts import RouteRequest
+from app.mission_contracts import RouteRequest, TripRouteRequest
 from app.route_simulation import DEMO_RESTRICTION, simulate_route
 
 
@@ -52,6 +52,16 @@ class RouteSimulationTests(TestCase):
         self.assertEqual(finding.code, "SIMULATED_RESTRICTION")
         self.assertEqual(finding.zone_id, DEMO_RESTRICTION.id)
         self.assertEqual(finding.segment_index, 0)
+
+    def test_trip_preview_uses_coordinates(self):
+        delivery = self.mission()
+        trip = TripRouteRequest(
+            mode="trip",
+            origin={"lat": delivery.origin.lat, "lon": delivery.origin.lon},
+            destination={"lat": delivery.destination.lat, "lon": delivery.destination.lon},
+            confirmed=True,
+        )
+        self.assertEqual(simulate_route(trip), simulate_route(delivery))
 
     def test_incomplete_or_unconfirmed_missions_are_rejected(self):
         for changes in ({"timing": None}, {"confirmed": False}, {"confirmed": 1}, {"cargo": []}):

@@ -1,7 +1,8 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=6";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=4";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=3";
+import { startMap } from "./traffic.js?v=5";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=4";
+import { simulateMission } from "./simulation.js?v=1";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -11,6 +12,9 @@ const draftKey = "breez.planDrafts";
 const drafts = loadDrafts();
 const dialog = document.querySelector("#plan-dialog");
 const planInput = document.querySelector("#plan-detail");
+const simulateTrip = document.querySelector("#simulate-trip");
+const tripProgress = document.querySelector("#trip-simulation-progress");
+let tripRequest;
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 let selectedPlan;
@@ -21,8 +25,14 @@ const tripSearch = createPlaceSearch({
   list: document.querySelector("#destination-results"),
   status: document.querySelector("#destination-status"),
   getOrigin: () => startingPoint,
-  onSelect: (place) => { selectedDestination = place; },
-  onType: () => { selectedDestination = null; },
+  onSelect: (place) => {
+    selectedDestination = place;
+    resetTripSimulation();
+  },
+  onType: () => {
+    selectedDestination = null;
+    resetTripSimulation();
+  },
 });
 
 function loadDrafts() {
@@ -52,7 +62,7 @@ function persistDrafts() {
   }
 }
 
-function openPlan(type) {
+function openPlan(type, place) {
   if (type === "delivery") {
     foodOrder.open(startingPoint, drafts.get(type)?.mission);
     return;
@@ -63,8 +73,9 @@ function openPlan(type) {
   document.querySelector("#detail-label").textContent = plan.label;
   planInput.placeholder = plan.placeholder;
   const draft = drafts.get(type);
-  selectedDestination = draft?.place ?? null;
-  planInput.value = draft?.detail ?? "";
+  selectedDestination = place ?? draft?.place ?? null;
+  planInput.value = place?.name ?? draft?.detail ?? "";
+  resetTripSimulation();
   planInput.setCustomValidity("");
   tripSearch.setEnabled(type === "trip");
   document.querySelector("#trip-search").hidden = type !== "trip";
@@ -128,7 +139,39 @@ for (const button of document.querySelectorAll("[data-plan]")) {
 }
 
 document.querySelector("#close-dialog").addEventListener("click", () => dialog.close());
-dialog.addEventListener("close", tripSearch.reset);
+dialog.addEventListener("close", () => {
+  tripSearch.reset();
+  resetTripSimulation();
+});
+
+function resetTripSimulation() {
+  tripRequest?.abort();
+  tripRequest = undefined;
+  simulateTrip.disabled = !startingPoint || !selectedDestination;
+  tripProgress.textContent = simulateTrip.disabled ? "Choose a destination suggestion to simulate a route." : "";
+}
+
+simulateTrip.addEventListener("click", async () => {
+  if (simulateTrip.disabled || !startingPoint || !selectedDestination) return;
+  const mission = { mode: "trip", origin: startingPoint, destination: selectedDestination };
+  const controller = new AbortController();
+  tripRequest = controller;
+  simulateTrip.disabled = true;
+  tripProgress.textContent = "Simulating trip route…";
+  try {
+    const result = await simulateMission(mission, controller.signal);
+    if (controller.signal.aborted || !dialog.open) return;
+    dialog.close();
+    showRoute(mission, result);
+  } catch (error) {
+    if (!controller.signal.aborted) tripProgress.textContent = error.message;
+  } finally {
+    if (tripRequest === controller) {
+      tripRequest = undefined;
+      simulateTrip.disabled = false;
+    }
+  }
+});
 planInput.addEventListener("input", () => planInput.setCustomValidity(""));
 
 document.querySelector("#plan-form").addEventListener("submit", (event) => {
@@ -162,34 +205,42 @@ const routeSummary = document.querySelector("#route-summary");
 const home = document.querySelector(".home");
 const routeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 let routeMission;
+function showRoute(mission, result) {
+  routeMission = mission;
+  const trip = mission.mode === "trip";
+  const labels = trip ? ["Start", "Destination"] : ["Pickup", "Drop-off"];
+  const blocked = result.status === "blocked";
+  home.dataset.routeView = "";
+  locationButton.hidden = true;
+  routeSummary.hidden = false;
+  routeSummary.dataset.status = result.status;
+  document.querySelector("#route-title").textContent = trip ? "Trip simulation" : "Delivery simulation";
+  document.querySelector("#back-to-order").textContent = trip ? "← Back to trip" : "← Back to order";
+  document.querySelector("#route-origin-label").textContent = labels[0];
+  document.querySelector("#route-destination-label").textContent = labels[1];
+  document.querySelector("#route-status").textContent = blocked
+    ? "Blocked by a simulated restriction" : "Passes demo checks";
+  document.querySelector("#route-pickup").textContent = [mission.origin.name, mission.origin.address].filter(Boolean).join(" · ");
+  document.querySelector("#route-dropoff").textContent = mission.destination.name;
+  document.querySelector("#route-distance").textContent = routeFormat.format(result.distance_miles) + " mi";
+  document.querySelector("#route-eta-row").hidden = result.eta_minutes === null;
+  document.querySelector("#route-eta").textContent = result.eta_minutes === null
+    ? "" : routeFormat.format(result.eta_minutes) + " min";
+  document.querySelector("#route-assumptions").textContent = result.eta_minutes === null
+    ? "Flight time is unavailable for this blocked candidate."
+    : "Assumes " + routeFormat.format(result.assumed_speed_mph) + " mph. Excludes takeoff and landing." + (trip ? "" : " Loading time is excluded.");
+  const finding = document.querySelector("#route-finding");
+  const zoneNames = result.restrictions.filter((zone) => result.findings.some((item) => item.zone_id === zone.id))
+    .map((zone) => zone.name);
+  finding.hidden = !zoneNames.length;
+  finding.textContent = zoneNames.length ? "The dashed segment intersects " + zoneNames.join(", ") + "." : "";
+  document.querySelector("#route-line-label").textContent = blocked ? "Blocked segment" : "Candidate route";
+  document.querySelector("#route-title").focus();
+  updateMap(mission.origin, mission.destination, result, labels);
+}
+
 const foodOrder = createFoodOrder({
-  onRoute(mission, result) {
-    routeMission = mission;
-    const blocked = result.status === "blocked";
-    home.dataset.routeView = "";
-    locationButton.hidden = true;
-    routeSummary.hidden = false;
-    routeSummary.dataset.status = result.status;
-    document.querySelector("#route-status").textContent = blocked
-      ? "Blocked by a simulated restriction" : "Passes demo checks";
-    document.querySelector("#route-pickup").textContent = [mission.origin.name, mission.origin.address].filter(Boolean).join(" · ");
-    document.querySelector("#route-dropoff").textContent = mission.destination.name;
-    document.querySelector("#route-distance").textContent = routeFormat.format(result.distance_miles) + " mi";
-    document.querySelector("#route-eta-row").hidden = result.eta_minutes === null;
-    document.querySelector("#route-eta").textContent = result.eta_minutes === null
-      ? "" : routeFormat.format(result.eta_minutes) + " min";
-    document.querySelector("#route-assumptions").textContent = result.eta_minutes === null
-      ? "Flight time is unavailable for this blocked candidate."
-      : "Assumes " + routeFormat.format(result.assumed_speed_mph) + " mph. Excludes takeoff, landing, and loading.";
-    const finding = document.querySelector("#route-finding");
-    const zoneNames = result.restrictions.filter((zone) => result.findings.some((item) => item.zone_id === zone.id))
-      .map((zone) => zone.name);
-    finding.hidden = !zoneNames.length;
-    finding.textContent = zoneNames.length ? "The dashed segment intersects " + zoneNames.join(", ") + "." : "";
-    document.querySelector("#route-line-label").textContent = blocked ? "Blocked segment" : "Candidate route";
-    document.querySelector("#route-title").focus();
-    updateMap(mission.origin, mission.destination, result);
-  },
+  onRoute: showRoute,
   onSave(mission) {
     drafts.set("delivery", { detail: mission.origin.name, mission });
     persistDrafts();
@@ -203,8 +254,14 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
   routeSummary.hidden = true;
   delete home.dataset.routeView;
   locationButton.hidden = false;
-  updateMap(mission.origin, mission.destination);
-  foodOrder.open(mission.destination, mission);
+  if (mission.mode === "trip") {
+    startingPoint = mission.origin;
+    updateMap(mission.origin);
+    openPlan("trip", mission.destination);
+  } else {
+    updateMap(mission.origin, mission.destination);
+    foodOrder.open(mission.destination, mission);
+  }
 });
 let locationAttempt = 0;
 let pendingPlan = null;

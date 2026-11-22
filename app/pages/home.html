@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/breez.css?v=8">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=11"></script>
+  <script type="module" src="/static/home.js?v=12"></script>
 </head>
 <body>
   <header class="site-header">
@@ -44,8 +44,8 @@
       <h2 id="route-title" tabindex="-1">Delivery simulation</h2>
       <p class="route-status" id="route-status"></p>
       <dl class="route-details">
-        <div><dt>Pickup</dt><dd id="route-pickup"></dd></div>
-        <div><dt>Drop-off</dt><dd id="route-dropoff"></dd></div>
+        <div><dt id="route-origin-label">Pickup</dt><dd id="route-pickup"></dd></div>
+        <div><dt id="route-destination-label">Drop-off</dt><dd id="route-dropoff"></dd></div>
         <div><dt>Distance</dt><dd id="route-distance"></dd></div>
         <div id="route-eta-row"><dt>Estimated flight time</dt><dd id="route-eta"></dd></div>
       </dl>
@@ -110,7 +110,11 @@
         <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
       </div>
       <p class="form-note" id="plan-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
-      <button class="save" type="submit">Save draft</button>
+      <div class="cart-actions">
+        <button class="save" id="simulate-trip" type="button" disabled>Simulate trip route</button>
+        <button class="text-button" type="submit">Save draft</button>
+      </div>
+      <p class="search-status" id="trip-simulation-progress" role="status"></p>
     </form>
   </dialog>
   <dialog id="food-dialog" aria-labelledby="food-title">

@@ -68,11 +68,9 @@ class ConciergeResponse(Contract):
         return self
 
 
-class RouteRequest(Contract):
-    origin: Place
-    destination: Place
-    cargo: list[CargoItem] = Field(min_length=1, max_length=30)
-    timing: DeliveryTiming
+class ConfirmedRoute(Contract):
+    origin: Coordinates
+    destination: Coordinates
     confirmed: Literal[True]
 
     @field_validator("confirmed", mode="before")
@@ -81,6 +79,17 @@ class RouteRequest(Contract):
         if value is not True:
             raise ValueError("Confirm the mission before simulating a route")
         return value
+
+
+class RouteRequest(ConfirmedRoute):
+    origin: Place
+    destination: Place
+    cargo: list[CargoItem] = Field(min_length=1, max_length=30)
+    timing: DeliveryTiming
+
+
+class TripRouteRequest(ConfirmedRoute):
+    mode: Literal["trip"]
 
 
 class SimulatedRestriction(Contract):

@@ -1,5 +1,6 @@
 import { distanceLabel, isPlace, normalized } from "./places.js?v=6";
 import { chains, restaurantLocations } from "./restaurants.js?v=1";
+import { simulateMission } from "./simulation.js?v=1";
 
 const menu = ["Food item 1", "Food item 2", "Food item 3"];
 const options = ["Custom option 1", "Custom option 2", "Custom option 3"];
@@ -282,37 +283,17 @@ export function createFoodOrder({ onSave, onRoute }) {
   simulate.addEventListener("click", async () => {
     if (!cart.length || simulationRequest) return;
     const mission = currentMission();
-    const point = ({ name, address, lat, lon }) => ({ name, address, lat, lon });
     const controller = new AbortController();
     simulationRequest = controller;
     simulate.disabled = true;
     simulationProgress.textContent = "Simulating delivery route…";
     try {
-      const response = await fetch("/api/route-simulation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin: point(mission.origin),
-          destination: point(mission.destination),
-          cargo: mission.items,
-          timing: mission.timing,
-          confirmed: true,
-        }),
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
-      });
-      const result = await response.json();
+      const result = await simulateMission(mission, controller.signal);
       if (controller.signal.aborted || !dialog.open) return;
-      if (!response.ok) {
-        simulationProgress.textContent = response.status === 422 && typeof result.detail === "string"
-          ? result.detail : "The route simulation is unavailable. Try again or save your draft.";
-        return;
-      }
       dialog.close();
       onRoute(mission, result);
-    } catch {
-      if (!controller.signal.aborted) {
-        simulationProgress.textContent = "The route simulation is unavailable. Try again or save your draft.";
-      }
+    } catch (error) {
+      if (!controller.signal.aborted) simulationProgress.textContent = error.message;
     } finally {
       if (simulationRequest === controller) {
         simulationRequest = undefined;
