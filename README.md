@@ -37,6 +37,10 @@ Restaurant search uses Photon’s OpenStreetMap fast-food data through the same 
 
 The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. The planned concierge will populate this same draft from plain-language requests and ask for missing details. Exact device coordinates are omitted from saved tab drafts.
 
+## Concierge and route simulation
+
+See the [delivery contracts](docs/delivery-contracts.md) for the model choice, proposed budget, and Python request and response schemas.
+
 ## Homepage data and licensing
 
 Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. Booking and checkout will require sign-in once those flows are implemented.
