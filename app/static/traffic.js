@@ -1,4 +1,5 @@
 import { floridaPoly, regionalPoint } from "./geography.js?v=1";
+import { installRouteOverlay, routeExtent } from "./delivery-map.js?v=1";
 
 const title = document.querySelector("#traffic-area");
 const trafficStatus = document.querySelector("#traffic-status");
@@ -43,15 +44,18 @@ export function startMap() {
   let markers = [];
   let deliveryMarkers = [];
   let deliveryBounds;
+  let deliveryRoute;
+  let drawRoute;
   let pending;
   let ready = false;
 
   function moveToArea() {
     if (deliveryBounds) {
       const mobile = window.matchMedia("(max-width: 760px)").matches;
+      const padding = mobile ? { top: 88, right: 52, bottom: 112, left: 52 } : 110;
       map.fitBounds(deliveryBounds, {
-        padding: mobile ? { top: 88, right: 52, bottom: 112, left: 52 } : 110,
-        maxZoom: 10,
+        padding: deliveryRoute ? { top: 110, right: 55, bottom: 110, left: 55 } : padding,
+        maxZoom: deliveryRoute ? 13 : 10,
       });
     } else map.easeTo(viewAt(center));
   }
@@ -133,6 +137,8 @@ export function startMap() {
   });
   map.once("load", () => {
     ready = true;
+    drawRoute = installRouteOverlay(map);
+    drawRoute(deliveryRoute);
     recenter.hidden = false;
     recenter.addEventListener("click", moveToArea);
     refreshTraffic();
@@ -140,11 +146,16 @@ export function startMap() {
     document.addEventListener("visibilitychange", refreshTraffic);
   });
 
-  return (point, deliveryDestination) => {
+  return (point, deliveryDestination, result) => {
+    deliveryRoute = result;
+    map.resize();
     center = point;
     title.textContent = point.area ? point.area + " air traffic" : "Air traffic near your start";
-    map.getContainer().setAttribute("aria-label", title.textContent + " map");
+    map.getContainer().setAttribute("aria-label", result ? "Simulated delivery route map" : title.textContent + " map");
+    recenter.textContent = result ? "Fit delivery route" : "Recenter map";
     markDeliveryStops(point, deliveryDestination);
+    if (result) for (const coords of routeExtent(result)) deliveryBounds.extend(coords);
+    drawRoute?.(result);
     moveToArea();
     pending?.abort();
     pending = undefined;

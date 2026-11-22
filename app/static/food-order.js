@@ -16,7 +16,7 @@ export function readFoodMission(mission) {
   return validItems ? mission : null;
 }
 
-export function createFoodOrder({ onSave }) {
+export function createFoodOrder({ onSave, onRoute }) {
   const dialog = document.querySelector("#food-dialog");
   const steps = [...dialog.querySelectorAll("[data-food-step]")];
   const title = dialog.querySelector("#food-title");
@@ -39,6 +39,9 @@ export function createFoodOrder({ onSave }) {
   const review = dialog.querySelector("#review-order");
   const cartList = dialog.querySelector("#food-cart");
   const timing = dialog.querySelector("#delivery-timing");
+  const simulate = dialog.querySelector("#simulate-delivery");
+  const simulationProgress = dialog.querySelector("#simulation-progress");
+  let simulationRequest;
   let request;
   let chainId;
   let pickup;
@@ -48,6 +51,7 @@ export function createFoodOrder({ onSave }) {
   let activeItem;
 
   function show(name, heading) {
+    cancelSimulation();
     step = name;
     for (const section of steps) section.hidden = section.dataset.foodStep !== name;
     back.hidden = name === "chains";
@@ -243,6 +247,7 @@ export function createFoodOrder({ onSave }) {
   dialog.addEventListener("close", () => {
     request?.abort();
     inference?.abort();
+    cancelSimulation();
   });
   restaurantForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -258,13 +263,67 @@ export function createFoodOrder({ onSave }) {
     showMenu();
   });
   review.addEventListener("click", showCart);
+  function currentMission() {
+    return {
+      mode: "delivery", source: "mock-menu", chainId, origin: pickup,
+      destination: { ...dropoff, address: dropoff.address ?? "" },
+      items: cart, timing: timing.value,
+    };
+  }
+
+  function cancelSimulation() {
+    simulationRequest?.abort();
+    simulationRequest = undefined;
+    simulationProgress.textContent = "";
+    simulate.disabled = false;
+  }
+
+  timing.addEventListener("change", cancelSimulation);
+  simulate.addEventListener("click", async () => {
+    if (!cart.length || simulationRequest) return;
+    const mission = currentMission();
+    const point = ({ name, address, lat, lon }) => ({ name, address, lat, lon });
+    const controller = new AbortController();
+    simulationRequest = controller;
+    simulate.disabled = true;
+    simulationProgress.textContent = "Simulating delivery route…";
+    try {
+      const response = await fetch("/api/route-simulation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origin: point(mission.origin),
+          destination: point(mission.destination),
+          cargo: mission.items,
+          timing: mission.timing,
+          confirmed: true,
+        }),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
+      });
+      const result = await response.json();
+      if (controller.signal.aborted || !dialog.open) return;
+      if (!response.ok) {
+        simulationProgress.textContent = response.status === 422 && typeof result.detail === "string"
+          ? result.detail : "The route simulation is unavailable. Try again or save your draft.";
+        return;
+      }
+      dialog.close();
+      onRoute(mission, result);
+    } catch {
+      if (!controller.signal.aborted) {
+        simulationProgress.textContent = "The route simulation is unavailable. Try again or save your draft.";
+      }
+    } finally {
+      if (simulationRequest === controller) {
+        simulationRequest = undefined;
+        simulate.disabled = false;
+      }
+    }
+  });
+
   dialog.querySelector("#save-food-order").addEventListener("click", () => {
     if (!cart.length) return;
-    const destination = { ...dropoff, address: dropoff.address ?? "" };
-    onSave({
-      mode: "delivery", source: "mock-menu", chainId, origin: pickup,
-      destination, items: cart, timing: timing.value,
-    });
+    onSave(currentMission());
     dialog.close();
   });
 

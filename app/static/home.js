@@ -1,7 +1,7 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=6";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=3";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=2";
+import { startMap } from "./traffic.js?v=4";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=3";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -158,13 +158,53 @@ const locationButton = document.querySelector("#change-origin");
 const useLocation = document.querySelector("#use-location");
 const canLocate = window.isSecureContext && Boolean(navigator.geolocation);
 const updateMap = startMap();
+const routeSummary = document.querySelector("#route-summary");
+const home = document.querySelector(".home");
+const routeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+let routeMission;
 const foodOrder = createFoodOrder({
+  onRoute(mission, result) {
+    routeMission = mission;
+    const blocked = result.status === "blocked";
+    home.dataset.routeView = "";
+    locationButton.hidden = true;
+    routeSummary.hidden = false;
+    routeSummary.dataset.status = result.status;
+    document.querySelector("#route-status").textContent = blocked
+      ? "Blocked by a simulated restriction" : "Passes demo checks";
+    document.querySelector("#route-pickup").textContent = [mission.origin.name, mission.origin.address].filter(Boolean).join(" · ");
+    document.querySelector("#route-dropoff").textContent = mission.destination.name;
+    document.querySelector("#route-distance").textContent = routeFormat.format(result.distance_miles) + " mi";
+    document.querySelector("#route-eta-row").hidden = result.eta_minutes === null;
+    document.querySelector("#route-eta").textContent = result.eta_minutes === null
+      ? "" : routeFormat.format(result.eta_minutes) + " min";
+    document.querySelector("#route-assumptions").textContent = result.eta_minutes === null
+      ? "Flight time is unavailable for this blocked candidate."
+      : "Assumes " + routeFormat.format(result.assumed_speed_mph) + " mph. Excludes takeoff, landing, and loading.";
+    const finding = document.querySelector("#route-finding");
+    const zoneNames = result.restrictions.filter((zone) => result.findings.some((item) => item.zone_id === zone.id))
+      .map((zone) => zone.name);
+    finding.hidden = !zoneNames.length;
+    finding.textContent = zoneNames.length ? "The dashed segment intersects " + zoneNames.join(", ") + "." : "";
+    document.querySelector("#route-line-label").textContent = blocked ? "Blocked segment" : "Candidate route";
+    document.querySelector("#route-title").focus();
+    updateMap(mission.origin, mission.destination, result);
+  },
   onSave(mission) {
     drafts.set("delivery", { detail: mission.origin.name, mission });
     persistDrafts();
     renderDrafts();
     updateMap(mission.origin, mission.destination);
   },
+});
+document.querySelector("#back-to-order").addEventListener("click", () => {
+  const mission = routeMission;
+  routeMission = undefined;
+  routeSummary.hidden = true;
+  delete home.dataset.routeView;
+  locationButton.hidden = false;
+  updateMap(mission.origin, mission.destination);
+  foodOrder.open(mission.destination, mission);
 });
 let locationAttempt = 0;
 let pendingPlan = null;

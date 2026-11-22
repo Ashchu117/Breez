@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=7">
+  <link rel="stylesheet" href="/static/breez.css?v=8">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=10"></script>
+  <script type="module" src="/static/home.js?v=11"></script>
 </head>
 <body>
   <header class="site-header">
@@ -38,6 +38,23 @@
         <ul id="draft-list"></ul>
       </section>
       <noscript><p>Enable JavaScript to use the planner and the aircraft map.</p></noscript>
+    </section>
+    <section class="route-summary" id="route-summary" aria-labelledby="route-title" hidden>
+      <button class="text-button" id="back-to-order" type="button">← Back to order</button>
+      <h2 id="route-title" tabindex="-1">Delivery simulation</h2>
+      <p class="route-status" id="route-status"></p>
+      <dl class="route-details">
+        <div><dt>Pickup</dt><dd id="route-pickup"></dd></div>
+        <div><dt>Drop-off</dt><dd id="route-dropoff"></dd></div>
+        <div><dt>Distance</dt><dd id="route-distance"></dd></div>
+        <div id="route-eta-row"><dt>Estimated flight time</dt><dd id="route-eta"></dd></div>
+      </dl>
+      <p class="form-note" id="route-finding" hidden></p>
+      <p class="form-note" id="route-assumptions"></p>
+      <div class="route-legend" aria-label="Map legend">
+        <span><i id="route-line-key" aria-hidden="true"></i><span id="route-line-label">Candidate route</span></span>
+        <span><i aria-hidden="true"></i>Simulated restriction</span>
+      </div>
     </section>
     <section class="traffic" aria-labelledby="traffic-title">
       <div class="map" id="traffic-map" aria-label="Interactive air traffic map centered on Lakeland"></div>
@@ -152,7 +169,11 @@
         <option>Within one hour</option>
       </select>
       <p class="form-note">This is a demo order. Saving keeps a draft in this tab without sending an order to the restaurant.</p>
-      <button class="save" id="save-food-order" type="button">Save order draft</button>
+      <div class="cart-actions">
+        <button class="save" id="simulate-delivery" type="button">Simulate delivery route</button>
+        <button class="text-button" id="save-food-order" type="button">Save order draft</button>
+      </div>
+      <p class="search-status" id="simulation-progress" role="status"></p>
     </section>
   </dialog>
 </body>
