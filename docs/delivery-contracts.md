@@ -2,11 +2,9 @@
 
 ## Concierge provider and cost
 
-Proposed for the hackathon: OpenAI Responses API with [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) and [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). FastAPI and the site run on palserver. The model extracts delivery requests and later explains Python's simulation results. The click-through order flow works independently.
+Breez uses the hackathon's sponsored OpenRouter key with [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna) and [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs). The app, map, and planned route simulation run on palserver. The concierge extracts free text, asks for missing details, and hands the order to the existing branch picker and cart. Explaining route results comes after the simulation is implemented.
 
-Proposed shared budget: **US$5 total** for development and judging. Approve the budget before enabling paid calls. Luna's documented Standard rates are $0.10 per million uncached input tokens and $0.50 per million output tokens. At 4,000 input tokens and 800 output tokens per call, 500 calls cost about **$0.40** at those rates, or about **$0.45** if every input token is billed at the documented 30-minute cache-write rate. Output counts include reasoning tokens. Recheck rates before enabling billing.
-
-When wiring the provider, use a dedicated server-side project, restrict it to the selected model, and set a $5 project hard limit and a $3 alert if available. [OpenAI's project limits](https://help.openai.com/en/articles/9186755-managing-your-work-in-the-api-platform) may take time to enforce. Keep a shared, durable cap of 500 attempted calls across palserver workers for the event. Count retries against that cap. Bound every full prompt to 4,000 input tokens, cap output at 800, and leave paid tools disabled. Keep the manual flow available once the cap is reached. These controls are work for the provider integration.
+OpenRouter lists Standard rates of $0.10 per million input tokens and $0.50 per million output tokens for Luna. Breez caps the total attempt count at 500 and limits the request size and generated output. At 4,000 input and 800 output tokens each, 500 calls would use about $0.40 in sponsor credits at those rates. The application has no paid backup key configured.
 
 ## Python request and response models
 
@@ -14,7 +12,7 @@ The canonical models are in [app/mission_contracts.py](../app/mission_contracts.
 
 | Boundary | Request | Response |
 | --- | --- | --- |
-| Concierge from the browser | Current message and previous extracted fields, if any | Extracted fields for the next turn, resolved draft, missing field names, and one follow-up when needed |
+| Concierge from the browser | Current message and previous extracted fields, if any | Extracted fields for the next turn. The browser asks for missing details and resolves the pickup when the user selects a branch. |
 | Model extraction | A request and the relevant prior answers | Pickup and drop-off names, cargo lines, and timing. Every key is present. Unknown values are `null`. |
 | Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, and structured blocking findings |
 
@@ -31,8 +29,31 @@ A user request like “Pick up two Food item 1s with Custom option 2 from Wendy�
 }
 ```
 
-Breez’s place lookup resolves coordinates. If multiple branches match, the resolved `origin` stays `null` until the user picks one. Python computes which fields are missing. Timing uses the two options in the current menu, **As soon as possible** and **Within one hour**. A user preference outside those options needs clarification.
+Breez’s place lookup resolves coordinates. If multiple branches match, the resolved `origin` stays `null` until the user picks one. The browser checks for missing order details before offering the branch picker. Timing uses the two options in the current menu, **As soon as possible** and **Within one hour**. A user preference outside those options needs clarification.
 
 The existing order draft already provides `origin`, `destination`, `items`, and `timing`. The browser will map `items` to `cargo` and send each selected place's `name`, `address`, `lat`, and `lon`. The browser retains the chain and menu metadata. A device drop-off deliberately omitted from saved tab storage must be chosen again. Use public places for the judged demo and keep device coordinates out of model prompts.
 
 The route engine owns the simulated findings, ETA, and status. A blocked result has a reason code, a simulated zone ID, and the zero-based index of the affected segment between consecutive map points. The model’s briefing consumes the result as data. The human review action is separate from the engine’s status. Both passing and blocked scenarios are simulations.
+
+## Enable the sponsored concierge on palserver
+
+Breez uses Navarro's OpenRouter credits only for the concierge. [The workshop example](https://github.com/fpunavarro/connect-api-llm/blob/main/connect-api-llm/README.md) demonstrates the OpenAI-compatible API. Breez uses OpenRouter's Chat Completions endpoint with the existing extraction schema and leaves the manual menu available when the API is offline or credits are exhausted.
+
+Run this from the palserver host as a sudo-capable admin after the Git sync. Paste the team key only when prompted. The root-only credential file stays outside both the checkout and the SSH chroot.
+
+~~~bash
+sudo bash -c 'umask 077; install -d -m 0700 /etc/breez; read -rsp "OpenRouter API key: " key; printf "\n"; [[ "$key" =~ ^sk-or-v1-[0-9a-f]{64}$ ]] || exit 1; printf "OPENROUTER_API_KEY=%s\n" "$key" > /etc/breez/openrouter.env'
+sudo install -d /etc/systemd/system/breez.service.d
+sudo tee /etc/systemd/system/breez.service.d/concierge.conf >/dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/breez/openrouter.env
+StateDirectory=breez
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart breez.service
+curl -fsS http://127.0.0.1:8000/health
+~~~
+
+The service stores its 500-attempt cap in SQLite under the systemd state directory. Each request is bounded before inference. Use a dedicated spending-capped team key for the public demo.
+
+For local testing, set `OPENROUTER_API_KEY` and `BREEZ_CONCIERGE_STATE_DIR` to an existing writable folder outside the checkout before starting Uvicorn. The concierge stays offline when either setting is absent.

@@ -1,7 +1,7 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=6";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=3";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=1";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=2";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },

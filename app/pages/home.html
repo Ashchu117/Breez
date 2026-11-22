@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/breez.css?v=7">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=9"></script>
+  <script type="module" src="/static/home.js?v=10"></script>
 </head>
 <body>
   <header class="site-header">
@@ -105,7 +105,16 @@
     <section data-food-step="chains" hidden>
       <p class="form-note" id="food-dropoff"></p>
       <ul class="food-choices" id="supported-chains"></ul>
+      <button class="text-button" id="open-concierge" type="button">Describe your order</button>
     </section>
+    <form id="concierge-form" data-food-step="concierge" hidden>
+      <p class="form-note">Tell Breez the chain, what you want, and when. Use public places in your message.</p>
+      <label for="concierge-message">Your order</label>
+      <input id="concierge-message" required maxlength="1000" autocomplete="off"
+             placeholder="Two Food item 1s from Wendy’s within an hour">
+      <p class="search-status" id="concierge-status" role="status"></p>
+      <button class="save" type="submit">Continue</button>
+    </form>
     <section data-food-step="branches" hidden>
       <form class="restaurant-search" id="restaurant-search">
         <div>

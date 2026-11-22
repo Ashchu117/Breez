@@ -1,4 +1,4 @@
-import { distanceLabel, isPlace } from "./places.js?v=6";
+import { distanceLabel, isPlace, normalized } from "./places.js?v=6";
 import { chains, restaurantLocations } from "./restaurants.js?v=1";
 
 const menu = ["Food item 1", "Food item 2", "Food item 3"];
@@ -29,6 +29,13 @@ export function createFoodOrder({ onSave }) {
   const customize = dialog.querySelector("#customize-food");
   const optionList = dialog.querySelector("#food-options");
   const quantity = dialog.querySelector("#food-quantity");
+  const concierge = dialog.querySelector("#concierge-form");
+  const message = dialog.querySelector("#concierge-message");
+  const conciergeStatus = dialog.querySelector("#concierge-status");
+  const send = concierge.querySelector("button[type=submit]");
+  let conversation;
+  let suggestion;
+  let inference;
   const review = dialog.querySelector("#review-order");
   const cartList = dialog.querySelector("#food-cart");
   const timing = dialog.querySelector("#delivery-timing");
@@ -90,7 +97,12 @@ export function createFoodOrder({ onSave }) {
         branches.append(lineButton(place.address, distanceLabel(dropoff, place) + " from drop-off", () => {
           if (!pickup || pickup.address !== place.address || pickup.name !== place.name) cart = [];
           pickup = place;
-          showMenu();
+          if (suggestion) {
+            cart = suggestion.cargo;
+            timing.value = suggestion.timing;
+            suggestion = undefined;
+            showCart();
+          } else showMenu();
         }));
       }
       status.textContent = unavailable
@@ -161,15 +173,77 @@ export function createFoodOrder({ onSave }) {
     optionList.append(label);
   }
 
+  function showConcierge() {
+    message.value = "";
+    conciergeStatus.textContent = "";
+    send.disabled = false;
+    show("concierge", "Describe your order");
+  }
+
+  dialog.querySelector("#open-concierge").addEventListener("click", showConcierge);
+  concierge.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (send.disabled || !message.value.trim()) return;
+    const controller = new AbortController();
+    inference = controller;
+    send.disabled = true;
+    conciergeStatus.textContent = "Reading your order…";
+    try {
+      const response = await fetch("/api/concierge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message.value.trim(), previous: conversation ?? null }),
+        signal: controller.signal,
+      });
+      const result = await response.json();
+      if (controller.signal.aborted || !dialog.open) return;
+      if (!response.ok) {
+        conciergeStatus.textContent = response.status !== 404 && typeof result.detail === "string"
+          ? result.detail : "The concierge is unavailable. Go back to use the menu.";
+        return;
+      }
+
+      conversation = result;
+      const namedChain = normalized(result.origin ?? "");
+      const chain = Object.keys(chains).find((id) => namedChain.includes(normalized(chains[id].name)));
+      const cargo = result.cargo?.map((item) => ({
+        name: menu.find((name) => normalized(name) === normalized(item.name)),
+        quantity: item.quantity,
+        options: item.options.map((option) => options.find((name) => normalized(name) === normalized(option))),
+      }));
+      message.value = "";
+      if (!chain) conciergeStatus.textContent = "Which chain should we use: McDonald’s, Wendy’s, or Burger King?";
+      else if (!cargo?.length || cargo.some((item) => !item.name || item.quantity > 9 || item.options.includes(undefined))) {
+        conciergeStatus.textContent = "Choose Food item 1, 2, or 3, up to 9 per item. Custom options 1, 2, and 3 are available.";
+      } else if (!result.timing) conciergeStatus.textContent = "As soon as possible, or within one hour?";
+      else {
+        chainId = chain;
+        suggestion = { cargo, timing: result.timing };
+        showBranches();
+        return;
+      }
+      message.focus();
+    } catch {
+      if (!controller.signal.aborted) conciergeStatus.textContent = "The concierge is unavailable. Go back to use the menu.";
+    } finally {
+      if (inference === controller) send.disabled = false;
+    }
+  });
+
   back.addEventListener("click", () => {
-    if (step === "branches") {
+    if (step === "branches" || step === "concierge") {
       request?.abort();
+      inference?.abort();
+      suggestion = undefined;
       showChains();
     } else if (step === "menu") showBranches();
     else showMenu();
   });
   dialog.querySelector("#close-food").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => request?.abort());
+  dialog.addEventListener("close", () => {
+    request?.abort();
+    inference?.abort();
+  });
   restaurantForm.addEventListener("submit", (event) => {
     event.preventDefault();
     findBranches();
@@ -196,6 +270,8 @@ export function createFoodOrder({ onSave }) {
 
   return {
     open(point, mission) {
+      conversation = undefined;
+      suggestion = undefined;
       dropoff = point;
       chainId = mission?.chainId;
       pickup = mission?.origin;
