@@ -2,32 +2,20 @@ from unittest import TestCase
 
 from pydantic import ValidationError
 
-from app.mission_contracts import Coordinates, RouteRequest, SimulatedRestriction, TripRouteRequest
+from app.mission_contracts import RouteRequest, TripRouteRequest
 from app.route_simulation import simulate_route
 
 
-DEMO_RESTRICTION = SimulatedRestriction(
-    id="lakeland-demo-zone",
-    name="Lakeland demo restriction",
-    center=Coordinates(lat=28.134, lon=-81.912),
-    radius_miles=1.25,
-)
-
-
 class RouteSimulationTests(TestCase):
-    def mission(self, origin: dict | None = None, **changes) -> RouteRequest:
+    def mission(self, **changes) -> RouteRequest:
         payload = {
-            "origin": origin or {
-                "name": "South Lakeland demo pickup",
-                "address": "",
-                "lat": 27.99247,
-                "lon": -81.95707,
+            "origin": {
+                "name": "South Lakeland demo pickup", "address": "",
+                "lat": 27.99247, "lon": -81.95707,
             },
             "destination": {
-                "name": "Florida Polytechnic University",
-                "address": "",
-                "lat": 28.1477054,
-                "lon": -81.8487852,
+                "name": "Florida Polytechnic University", "address": "",
+                "lat": 28.1477054, "lon": -81.8487852,
             },
             "cargo": [{"name": "Food item 1", "quantity": 2, "options": []}],
             "timing": "Within one hour",
@@ -36,31 +24,41 @@ class RouteSimulationTests(TestCase):
         payload.update(changes)
         return RouteRequest.model_validate(payload)
 
-    def test_passing_route(self):
+    def test_candidate_without_overlap_has_eta(self):
         result = simulate_route(self.mission())
         self.assertTrue(result.simulation)
-        self.assertEqual(result.status, "passes_demo_checks")
+        self.assertEqual(result.status, "no_listed_overlap")
         self.assertAlmostEqual(result.distance_miles, 12.58, places=1)
         self.assertAlmostEqual(result.eta_minutes, result.distance_miles * 60 / result.assumed_speed_mph)
         self.assertEqual(result.findings, [])
-        self.assertEqual(result.restrictions, [])
+        self.assertTrue(result.airspace_retrieved_at)
 
-    def test_blocked_route_reports_segment_without_eta(self):
-        mission = self.mission(origin={
-            "name": "North Lakeland demo pickup",
-            "address": "",
-            "lat": 28.12009,
-            "lon": -81.97385,
-        })
-        self.assertEqual(simulate_route(mission).status, "passes_demo_checks")
-        result = simulate_route(mission, (DEMO_RESTRICTION,))
+    def test_cape_route_intersects_published_special_use_airspace(self):
+        route = TripRouteRequest(
+            mode="trip", confirmed=True,
+            origin={"lat": 28.61222, "lon": -80.80755},
+            destination={"lat": 28.3186, "lon": -80.6094},
+        )
+        result = simulate_route(route)
         self.assertEqual(result.status, "blocked")
         self.assertIsNone(result.eta_minutes)
-        self.assertEqual(len(result.findings), 1)
-        finding = result.findings[0]
-        self.assertEqual(finding.code, "SIMULATED_RESTRICTION")
-        self.assertEqual(finding.zone_id, DEMO_RESTRICTION.id)
-        self.assertEqual(finding.segment_index, 0)
+        self.assertTrue(all(finding.segment_index == 0 for finding in result.findings))
+        self.assertTrue(all(finding.code == "FAA_AIRSPACE_OVERLAP" for finding in result.findings))
+        finding_ids = {finding.zone_id for finding in result.findings}
+        self.assertIn("R-2935", {area.name for area in result.restrictions if area.id in finding_ids})
+
+    def test_keys_route_intersects_published_uas_restriction(self):
+        route = TripRouteRequest(
+            mode="trip", confirmed=True,
+            origin={"lat": 24.5551, "lon": -81.78},
+            destination={"lat": 24.5976, "lon": -81.6609},
+        )
+        result = simulate_route(route)
+        self.assertEqual(result.status, "blocked")
+        finding_ids = {finding.zone_id for finding in result.findings}
+        self.assertIn("Boca Chica", {
+            area.name for area in result.restrictions if area.id in finding_ids and area.kind == "uas_security"
+        })
 
     def test_trip_preview_uses_coordinates(self):
         delivery = self.mission()

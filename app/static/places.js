@@ -220,6 +220,41 @@ async function streetCompletions(fragment, number, bias, signal, alias) {
   });
 }
 
+async function namedPlaces(query, bias, signal) {
+  const primarySignal = AbortSignal.any([signal, AbortSignal.timeout(3200)]);
+  try {
+    const results = (await photonPlaces(query, bias, undefined, primarySignal)).filter(isPlace);
+    const inFlorida = await Promise.all(results.map(isInFlorida));
+    const floridaResults = results.filter((_, index) => inFlorida[index]);
+    if (floridaResults.length) return floridaResults;
+  } catch {
+    if (signal.aborted) return [];
+  }
+
+  const prefix = query.replace(/,?\s+(?:Florida|FL)$/i, "").trim().toUpperCase();
+  if (prefix.length < 3 || !/^[\p{L}\p{N} '.-]+$/u.test(prefix)) return [];
+  const where = "STATE='12' AND UPPER(BASENAME) LIKE '" + prefix.replaceAll("'", "''") + "%'";
+  const params = new URLSearchParams({
+    f: "json", where, returnGeometry: "false",
+    outFields: "BASENAME,INTPTLAT,INTPTLON", resultRecordCount: "8",
+  });
+  const root = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer";
+  const sources = [4, 5].map(async (layer) => {
+    const response = await fetch(root + "/" + layer + "/query?" + params, {
+      referrerPolicy: "no-referrer", signal,
+    });
+    if (!response.ok) throw new Error("Census place search unavailable");
+    const { features } = await response.json();
+    return features.map(({ attributes }) => ({
+      name: attributes.BASENAME, address: "Florida", area: attributes.BASENAME,
+      lat: Number(attributes.INTPTLAT), lon: Number(attributes.INTPTLON), kind: "locality",
+    }));
+  });
+  const replies = await Promise.allSettled(sources);
+  if (replies.every((reply) => reply.status === "rejected")) throw new Error("Place search unavailable");
+  return replies.flatMap((reply) => reply.status === "fulfilled" ? reply.value : []);
+}
+
 async function searchPlaces(query, signal, origin, preview) {
   const bias = regionalPoint(origin ?? floridaPoly);
   const key = [bias.lat, bias.lon, query.toLowerCase()].join(":");
@@ -233,7 +268,8 @@ async function searchPlaces(query, signal, origin, preview) {
   if (alias && !address) known.unshift(deerfieldStreet);
 
   const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(7000)]);
-  const lookups = [photonPlaces(query, bias, address?.[1], requestSignal)];
+  if (known.length) preview(known);
+  const lookups = [address ? photonPlaces(query, bias, address[1], requestSignal) : namedPlaces(query, bias, requestSignal)];
   const completeStreet = address && ROAD_ENDING.test(fragment);
   let completions = [];
   if (completeStreet) {
@@ -301,7 +337,7 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
   }
 
   function placeDescription(place) {
-    const kind = { street: "Street", estimate: "Estimated address", completion: "Complete address search" }[place.kind];
+    const kind = { street: "Street", estimate: "Estimated address", locality: "Census place reference point", completion: "Complete address search" }[place.kind];
     return [place.address, kind].filter(Boolean).join(" · ");
   }
 

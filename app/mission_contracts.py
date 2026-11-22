@@ -92,28 +92,32 @@ class TripRouteRequest(ConfirmedRoute):
     mode: Literal["trip"]
 
 
-class SimulatedRestriction(Contract):
+class AirspaceRestriction(Contract):
     id: str = Field(min_length=1, max_length=80)
-    name: str = Field(min_length=1, max_length=120)
-    center: Coordinates
-    radius_miles: float = Field(gt=0, allow_inf_nan=False)
+    name: str = Field(min_length=1, max_length=200)
+    kind: Literal["uas_security", "prohibited", "restricted"]
+    lower: str
+    upper: str
+    schedule: str
+    polygons: list[list[list[tuple[float, float]]]] = Field(min_length=1)
 
 
 class RouteFinding(Contract):
-    code: Literal["SIMULATED_RESTRICTION"]
+    code: Literal["FAA_AIRSPACE_OVERLAP"]
     zone_id: str = Field(min_length=1, max_length=80)
     segment_index: int = Field(strict=True, ge=0)
 
 
 class RouteResponse(Contract):
     simulation: Literal[True]
-    status: Literal["passes_demo_checks", "blocked"]
+    status: Literal["no_listed_overlap", "blocked"]
     points: list[Coordinates] = Field(min_length=2)
     distance_miles: float = Field(ge=0, allow_inf_nan=False)
     eta_minutes: float | None = Field(gt=0, allow_inf_nan=False)
     assumed_speed_mph: float = Field(gt=0, allow_inf_nan=False)
     findings: list[RouteFinding]
-    restrictions: list[SimulatedRestriction]
+    restrictions: list[AirspaceRestriction]
+    airspace_retrieved_at: str
 
     @model_validator(mode="after")
     def validate_simulation_result(self):
@@ -126,5 +130,5 @@ class RouteResponse(Contract):
             raise ValueError("A finding must reference an existing route segment")
         zone_ids = {zone.id for zone in self.restrictions}
         if any(finding.zone_id not in zone_ids for finding in self.findings):
-            raise ValueError("A finding must reference an existing simulated restriction")
+            raise ValueError("A finding must reference an existing published restriction")
         return self

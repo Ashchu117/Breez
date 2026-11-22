@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/breez.css?v=9">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=13"></script>
+  <script type="module" src="/static/home.js?v=14"></script>
 </head>
 <body>
   <header class="site-header">
@@ -51,9 +51,10 @@
       </dl>
       <p class="form-note" id="route-finding" hidden></p>
       <p class="form-note" id="route-assumptions"></p>
+      <p class="form-note"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Horizontal screening only. Check current FAA notices and authorizations before flight.</p>
       <div class="route-legend" aria-label="Map legend">
         <span><i id="route-line-key" aria-hidden="true"></i><span id="route-line-label">Candidate route</span></span>
-        <span id="route-zone-key" hidden><i aria-hidden="true"></i>Simulated restriction</span>
+        <span id="route-zone-key" hidden><i aria-hidden="true"></i>Published FAA area</span>
       </div>
     </section>
     <section class="traffic" aria-labelledby="traffic-title">

@@ -1,9 +1,10 @@
-"""Simulate a direct route candidate, with optional fictional restrictions."""
+"""Screen a route preview against the FAA airspace snapshot."""
 
-from math import asin, cos, hypot, radians, sin, sqrt
+from math import asin, cos, radians, sin, sqrt
 
 from fastapi import APIRouter, HTTPException, Response
 
+from app.faa_airspace import intersects_area, nearby_airspace
 from app.florida import is_in_florida
 from app.mission_contracts import (
     ConfirmedRoute,
@@ -11,7 +12,6 @@ from app.mission_contracts import (
     RouteFinding,
     RouteRequest,
     RouteResponse,
-    SimulatedRestriction,
     TripRouteRequest,
 )
 
@@ -28,27 +28,7 @@ def distance_miles(start: Coordinates, end: Coordinates) -> float:
     return 2 * EARTH_RADIUS_MILES * asin(min(1, sqrt(haversine)))
 
 
-def intersects_restriction(
-    start: Coordinates, end: Coordinates, zone: SimulatedRestriction
-) -> bool:
-    # Use a local plane in miles centered on the fictional zone.
-    lon_scale = EARTH_RADIUS_MILES * cos(radians(zone.center.lat))
-    start_x = lon_scale * radians(start.lon - zone.center.lon)
-    start_y = EARTH_RADIUS_MILES * radians(start.lat - zone.center.lat)
-    dx = lon_scale * radians(end.lon - start.lon)
-    dy = EARTH_RADIUS_MILES * radians(end.lat - start.lat)
-    segment_squared = dx * dx + dy * dy
-    if not segment_squared:
-        return hypot(start_x, start_y) <= zone.radius_miles
-
-    fraction = -(start_x * dx + start_y * dy) / segment_squared
-    nearest = min(1.0, max(0.0, fraction))
-    return hypot(start_x + nearest * dx, start_y + nearest * dy) <= zone.radius_miles
-
-
-def simulate_route(
-    mission: ConfirmedRoute, restrictions: tuple[SimulatedRestriction, ...] = ()
-) -> RouteResponse:
+def simulate_route(mission: ConfirmedRoute) -> RouteResponse:
     start = Coordinates(lat=mission.origin.lat, lon=mission.origin.lon)
     end = Coordinates(lat=mission.destination.lat, lon=mission.destination.lon)
     distance = distance_miles(start, end)
@@ -57,28 +37,32 @@ def simulate_route(
     if not is_in_florida(start) or not is_in_florida(end):
         raise ValueError("Choose start and end locations in Florida.")
 
+    retrieved_at, areas = nearby_airspace(start, end)
     findings = [
-        RouteFinding(code="SIMULATED_RESTRICTION", zone_id=zone.id, segment_index=0)
-        for zone in restrictions
-        if intersects_restriction(start, end, zone)
+        RouteFinding(code="FAA_AIRSPACE_OVERLAP", zone_id=zone.id, segment_index=0)
+        for zone in areas
+        if intersects_area(start, end, zone)
     ]
     return RouteResponse(
         simulation=True,
-        status="blocked" if findings else "passes_demo_checks",
+        status="blocked" if findings else "no_listed_overlap",
         points=[start, end],
         distance_miles=distance,
         eta_minutes=None if findings else distance / DEMO_SPEED_MPH * 60,
         assumed_speed_mph=DEMO_SPEED_MPH,
         findings=findings,
-        restrictions=list(restrictions),
+        restrictions=areas,
+        airspace_retrieved_at=retrieved_at,
     )
 
 
 @router.post("/route-simulation")
 def route_simulation(mission: RouteRequest | TripRouteRequest, response: Response) -> RouteResponse:
-    """Evaluate a confirmed mission in the Breez simulation."""
+    """Screen the confirmed route against published FAA areas."""
     response.headers["Cache-Control"] = "no-store"
     try:
         return simulate_route(mission)
+    except OSError:
+        raise HTTPException(status_code=503, detail="FAA airspace data is unavailable.") from None
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from None

@@ -1,5 +1,5 @@
 import { floridaPoly, regionalPoint } from "./geography.js?v=1";
-import { installRouteOverlay, routeExtent } from "./delivery-map.js?v=1";
+import { installRouteOverlay, routeExtent } from "./delivery-map.js?v=2";
 
 const title = document.querySelector("#traffic-area");
 const trafficStatus = document.querySelector("#traffic-status");

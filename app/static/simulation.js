@@ -24,5 +24,8 @@ export async function simulateMission(mission, signal) {
   if (!response.ok) {
     throw new Error(response.status === 422 && typeof result.detail === "string" ? result.detail : unavailable);
   }
+  if (!result.airspace_retrieved_at) {
+    throw new Error("FAA airspace data is unavailable. Try again or save your draft.");
+  }
   return result;
 }

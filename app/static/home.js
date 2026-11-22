@@ -1,8 +1,8 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=7";
+import { createPlaceSearch, isPlace } from "./places.js?v=8";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=5";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=5";
-import { simulateMission } from "./simulation.js?v=1";
+import { startMap } from "./traffic.js?v=6";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=6";
+import { simulateMission } from "./simulation.js?v=2";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -219,7 +219,7 @@ function showRoute(mission, result) {
   document.querySelector("#route-origin-label").textContent = labels[0];
   document.querySelector("#route-destination-label").textContent = labels[1];
   document.querySelector("#route-status").textContent = blocked
-    ? "Blocked by a simulated restriction" : "Passes demo checks";
+    ? "FAA airspace overlap — review required" : "No overlap with listed FAA areas";
   document.querySelector("#route-pickup").textContent = [mission.origin.name, mission.origin.address].filter(Boolean).join(" · ");
   document.querySelector("#route-dropoff").textContent = mission.destination.name;
   document.querySelector("#route-distance").textContent = routeFormat.format(result.distance_miles) + " mi";
@@ -231,10 +231,13 @@ function showRoute(mission, result) {
     : "Assumes " + routeFormat.format(result.assumed_speed_mph) + " mph. Excludes takeoff and landing." + (trip ? "" : " Loading time is excluded.");
   const finding = document.querySelector("#route-finding");
   const zoneNames = result.restrictions.filter((zone) => result.findings.some((item) => item.zone_id === zone.id))
-    .map((zone) => zone.name);
+    .map((zone) => zone.name + ([zone.lower, zone.upper].some(Boolean) ? " (" + [zone.lower, zone.upper].filter(Boolean).join("–") + ")" : ""));
+  const snapshot = new Date(result.airspace_retrieved_at);
+  document.querySelector("#route-source-date").textContent = Number.isNaN(snapshot.getTime()) ? "" :
+    " · Retrieved " + new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeZone: "UTC"}).format(snapshot);
   finding.hidden = !zoneNames.length;
-  finding.textContent = zoneNames.length ? "The dashed segment intersects " + zoneNames.join(", ") + "." : "";
-  document.querySelector("#route-line-label").textContent = blocked ? "Blocked segment" : "Candidate route";
+  finding.textContent = zoneNames.length ? "The dashed segment crosses published airspace for " + zoneNames.join(", ") + "." : "";
+  document.querySelector("#route-line-label").textContent = blocked ? "Segment for review" : "Candidate route";
   document.querySelector("#route-zone-key").hidden = !result.restrictions.length;
   document.querySelector("#route-title").focus();
   updateMap(mission.origin, mission.destination, result, labels);

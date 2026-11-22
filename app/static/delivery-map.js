@@ -1,21 +1,9 @@
 const sourceId = "delivery-simulation";
 const routeColor = "#78ead5";
 const warningColor = "#ffad83";
-const milesPerDegree = 3958.76 * Math.PI / 180;
 
 function coordinate({ lat, lon }) {
   return [lon, lat];
-}
-
-function zoneRing(zone) {
-  const { lat, lon } = zone.center;
-  const latRadius = zone.radius_miles / milesPerDegree;
-  const lonRadius = latRadius / Math.cos(lat * Math.PI / 180);
-  const ring = Array.from({ length: 48 }, (_, index) => {
-    const angle = index * Math.PI / 24;
-    return [lon + Math.cos(angle) * lonRadius, lat + Math.sin(angle) * latRadius];
-  });
-  return [...ring, ring[0]];
 }
 
 function feature(type, coordinates, kind) {
@@ -29,17 +17,13 @@ function routeFeatures(result) {
     "LineString", [coordinate(result.points[index]), coordinate(end)], blocked.has(index) ? "blocked" : "route",
   ));
   return [
-    ...result.restrictions.map((zone) => feature("Polygon", [zoneRing(zone)], "zone")),
+    ...result.restrictions.map((zone) => feature("MultiPolygon", zone.polygons, "zone")),
     ...segments,
   ];
 }
 
 export function routeExtent(result) {
-  const blockedZones = new Set(result.findings.map((finding) => finding.zone_id));
-  return [
-    ...result.points.map(coordinate),
-    ...result.restrictions.filter((zone) => blockedZones.has(zone.id)).flatMap(zoneRing),
-  ];
+  return result.points.map(coordinate);
 }
 
 export function installRouteOverlay(map) {

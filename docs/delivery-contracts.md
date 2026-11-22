@@ -14,7 +14,7 @@ The canonical models are in [app/mission_contracts.py](../app/mission_contracts.
 | --- | --- | --- |
 | Concierge from the browser | Current message and previous extracted fields, if any | Extracted fields for the next turn. The browser asks for missing details and resolves the pickup when the user selects a branch. |
 | Model extraction | A request and the relevant prior answers | Pickup and drop-off names, cargo lines, and timing. Every key is present. Unknown values are `null`. |
-| Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, simulated restriction geometry, and structured blocking findings |
+| Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, published FAA boundary geometry, snapshot date, and structured overlap findings |
 
 A user request like “Pick up two Food item 1s with Custom option 2 from Wendy’s for Florida Poly” could produce this extraction:
 
@@ -33,7 +33,7 @@ Breez’s place lookup resolves coordinates. If multiple branches match, the res
 
 The existing order draft already provides `origin`, `destination`, `items`, and `timing`. The browser will map `items` to `cargo` and send each selected place's `name`, `address`, `lat`, and `lon`. The browser retains the chain and menu metadata. A device drop-off deliberately omitted from saved tab storage must be chosen again. Use public places for the judged demo and keep device coordinates out of model prompts.
 
-The route engine owns the simulated findings, ETA, and status. A blocked result has a reason code, a simulated zone ID, and the zero-based index of the affected segment between consecutive map points. The model’s briefing consumes the result as data. The human review action is separate from the engine’s status. Both passing and blocked scenarios are simulations.
+The route engine computes distance, ETA, and horizontal overlaps with published FAA polygons. A blocked preview identifies the area and the affected zero-based segment index. The model’s briefing consumes the engine’s result as data.
 
 ## Run a route simulation
 
@@ -41,9 +41,14 @@ The route engine owns the simulated findings, ETA, and status. A blocked result 
 
 The trip planner uses the same endpoint with `mode: "trip"`, `confirmed: true`, and `origin` and `destination` objects containing `lat` and `lon`. Trip previews use coordinates only. Cargo and timing apply to delivery requests.
 
-The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. With no restrictions active, valid trips and deliveries show the direct line and estimated flight time. The response also supports simulated restriction centers, radii, and zero-based segment indexes when restrictions are configured for a scenario.
+The candidate is a direct segment. Breez calculates its great-circle distance and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading. The map displays nearby published polygons and holds a candidate for review when it touches or crosses one. The screen checks horizontal overlap regardless of altitude or schedule. It covers the two downloaded sources below. The app reports the collection date and links users to the FAA for current notices and flight authorization.
 
-In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) gives a preview. Each coordinate pair is latitude, longitude.
+- [FAA National Security UAS Flight Restrictions](https://udds-faa.opendata.arcgis.com/datasets/0270b9d8a5d34217856cc03aaf833309_0)
+- [FAA Special Use Airspace, prohibited and restricted areas](https://adds-faa.opendata.arcgis.com/datasets/dd0d1b726e504137ab3c41b21835d05b_0)
+
+Refresh the public-use FAA snapshot from the repo with `python scripts/update_faa_airspace.py`. The import selects areas whose geometry bounds intersect the Florida extent, retains FAA names and vertical limits, and stores the horizontal geometry. Commit the refreshed snapshot and restart Breez to load it. Check [current FAA flight restrictions and NOTAMs](https://www.faa.gov/uas/getting_started/temporary_flight_restrictions) separately before any real flight.
+
+In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) shows a preview with no listed overlap. In the trip planner, Titusville to Cocoa Beach intersects published restricted airspace in the bundled snapshot.
 
 ## Enable the sponsored concierge on palserver
 
