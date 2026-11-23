@@ -3,7 +3,7 @@ import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=7";
 import { createFoodOrder, readFoodMission } from "./food-order.js?v=7";
 import { simulateMission } from "./simulation.js?v=3";
-import { findTripPlaces, tripCategories } from "./trip-places.js?v=1";
+import { findTripPlaces, tripCategories } from "./trip-places.js?v=2";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },

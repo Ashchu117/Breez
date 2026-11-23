@@ -8,6 +8,7 @@ export const tripCategories = {
   cafe: "Cafés",
   park: "Parks",
   hospital: "Hospitals",
+  car_repair: "Auto repair shops",
 };
 
 export async function findTripPlaces(category, city, origin, signal) {

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api")
 URL = "https://photon.komoot.io/api/"
 CENSUS_PLACES = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer"
 TAGS = {"supermarket": "shop", "pharmacy": "amenity", "restaurant": "amenity",
-        "cafe": "amenity", "park": "leisure", "hospital": "amenity"}
+        "cafe": "amenity", "park": "leisure", "hospital": "amenity", "car_repair": "shop"}
 LIMIT_BYTES = 512 * 1024
 slots = BoundedSemaphore(2)
 

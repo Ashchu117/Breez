@@ -33,7 +33,7 @@ class ConciergeRequest(Contract):
     previous: ExtractedMission | None
 
 
-TripCategory = Literal["supermarket", "pharmacy", "restaurant", "cafe", "park", "hospital"]
+TripCategory = Literal["supermarket", "pharmacy", "restaurant", "cafe", "park", "hospital", "car_repair"]
 
 
 class TripIntent(Contract):
