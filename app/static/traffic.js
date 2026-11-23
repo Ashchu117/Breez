@@ -5,7 +5,8 @@ const title = document.querySelector("#traffic-area");
 const trafficStatus = document.querySelector("#traffic-status");
 const trafficPanel = document.querySelector(".traffic-info");
 const recenter = document.querySelector("#recenter-map");
-const MAX_SNAPSHOT_AGE = 6 * 60 * 1000;
+const retryTraffic = document.querySelector("#retry-traffic");
+const MAX_SNAPSHOT_AGE = 15 * 60 * 1000;
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   timeZone: "America/New_York",
   hour: "numeric",
@@ -42,6 +43,7 @@ export function startMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
   let center = floridaPoly;
   let markers = [];
+  let lastSnapshot;
   let deliveryMarkers = [];
   let deliveryBounds;
   let deliveryRoute;
@@ -84,6 +86,21 @@ export function startMap() {
     for (const marker of markers) marker.remove();
     markers = [];
     delete trafficPanel.dataset.available;
+    delete trafficPanel.dataset.delayed;
+  }
+
+  function isRecent(snapshot) {
+    return Number.isFinite(snapshot?.observed_at) && Date.now() - snapshot.observed_at <= MAX_SNAPSHOT_AGE;
+  }
+
+  function showTrafficStatus(snapshot, delayed) {
+    trafficPanel.toggleAttribute("data-available", !delayed);
+    trafficPanel.toggleAttribute("data-delayed", delayed);
+    for (const marker of markers) marker.getElement().toggleAttribute("data-delayed", delayed);
+    const time = timeFormatter.format(snapshot.observed_at);
+    trafficStatus.textContent = delayed ? "Aircraft feed delayed · last update " + time :
+      markers.length + " aircraft in region · updated " + time;
+    retryTraffic.hidden = !delayed;
   }
 
   async function refreshTraffic() {
@@ -91,10 +108,17 @@ export function startMap() {
 
     const controller = new AbortController();
     pending = controller;
+    retryTraffic.disabled = true;
+    if (lastSnapshot && !isRecent(lastSnapshot)) {
+      clearMarkers();
+      lastSnapshot = undefined;
+      trafficStatus.textContent = "Refreshing aircraft positions…";
+    }
     const { lat, lon } = regionalPoint(center);
     const params = new URLSearchParams({ lat, lon });
     try {
       const response = await fetch("/api/air-traffic?" + params, {
+        cache: "no-store",
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8500)]),
       });
       if (!response.ok) throw new Error("Aircraft feed unavailable");
@@ -105,7 +129,7 @@ export function startMap() {
       if (!matchesRegion && (snapshot.region || center !== floridaPoly)) {
         throw new Error("Aircraft feed is for another region");
       }
-      if (!Number.isFinite(snapshot.observed_at) || Date.now() - snapshot.observed_at > MAX_SNAPSHOT_AGE) {
+      if (!isRecent(snapshot)) {
         throw new Error("Aircraft feed is stale");
       }
 
@@ -120,15 +144,22 @@ export function startMap() {
           rotationAlignment: "map",
         }).setLngLat([aircraft.longitude, aircraft.latitude]).addTo(map));
       }
-      trafficPanel.dataset.available = "true";
-      trafficStatus.textContent = markers.length + " aircraft in region · " + timeFormatter.format(snapshot.observed_at);
+      lastSnapshot = snapshot;
+      showTrafficStatus(snapshot, snapshot.delayed === true);
     } catch {
-      if (!controller.signal.aborted) {
+      if (controller.signal.aborted) return;
+      if (isRecent(lastSnapshot)) showTrafficStatus(lastSnapshot, true);
+      else {
+        lastSnapshot = undefined;
         clearMarkers();
-        trafficStatus.textContent = "Aircraft data unavailable for this area";
+        trafficStatus.textContent = "Aircraft feed unavailable · map and routes still work";
+        retryTraffic.hidden = false;
       }
     } finally {
-      if (pending === controller) pending = undefined;
+      if (pending === controller) {
+        pending = undefined;
+        retryTraffic.disabled = false;
+      }
     }
   }
 
@@ -141,6 +172,7 @@ export function startMap() {
     drawRoute(deliveryRoute);
     recenter.hidden = false;
     recenter.addEventListener("click", moveToArea);
+    retryTraffic.addEventListener("click", refreshTraffic);
     refreshTraffic();
     window.setInterval(refreshTraffic, 60_000);
     document.addEventListener("visibilitychange", refreshTraffic);
@@ -149,6 +181,8 @@ export function startMap() {
   return (point, destination, result, labels = ["Pickup", "Drop-off"]) => {
     deliveryRoute = result;
     map.resize();
+    const previousRegion = regionalPoint(center);
+    const nextRegion = regionalPoint(point);
     center = point;
     title.textContent = point.area ? point.area + " air traffic" : "Air traffic near your start";
     map.getContainer().setAttribute("aria-label", result ? "Simulated route map" : title.textContent + " map");
@@ -157,10 +191,16 @@ export function startMap() {
     if (result) for (const coords of routeExtent(result)) deliveryBounds.extend(coords);
     drawRoute?.(result);
     moveToArea();
-    pending?.abort();
-    pending = undefined;
-    clearMarkers();
-    trafficStatus.textContent = "Loading aircraft for this area…";
-    if (ready) refreshTraffic();
+    if (previousRegion.lat !== nextRegion.lat || previousRegion.lon !== nextRegion.lon) {
+      pending?.abort();
+      pending = undefined;
+      lastSnapshot = undefined;
+      clearMarkers();
+      retryTraffic.hidden = true;
+      if (ready) {
+        trafficStatus.textContent = "Loading aircraft for this area…";
+        refreshTraffic();
+      }
+    }
   };
 }

@@ -196,6 +196,9 @@ a { color: inherit; }
 .traffic-info p { margin: 0.35rem 0 0; color: #c2d1c7; font-size: 0.78rem; }
 .traffic-dot { display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.25rem; border-radius: 50%; background: #84958a; }
 .traffic-info[data-available] .traffic-dot { background: var(--accent); }
+.traffic-info[data-delayed] .traffic-dot { background: #ffad83; }
+.traffic-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.aircraft[data-delayed] { opacity: 0.5; }
 .recenter { margin-top: 0.5rem; padding: 0.25rem 0; border: 0; background: transparent; color: var(--accent); font-size: 0.78rem; }
 .recenter:hover { text-decoration: underline; }
 .attribution { bottom: 0.85rem; margin: 0; max-width: calc(100% - 2.4rem); color: #c2d1c7; font-size: 0.72rem; line-height: 1.6; }

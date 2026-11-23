@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=13">
+  <link rel="stylesheet" href="/static/breez.css?v=14">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=19"></script>
+  <script type="module" src="/static/home.js?v=20"></script>
 </head>
 <body>
   <header class="site-header">
@@ -87,8 +87,11 @@
       <div class="map" id="traffic-map" aria-label="Interactive air traffic map centered on Lakeland"></div>
       <div class="traffic-info">
         <h2 id="traffic-title"><span class="traffic-dot" aria-hidden="true"></span> <span id="traffic-area">Lakeland air traffic</span></h2>
-        <p id="traffic-status" role="status">Loading the aircraft map…</p>
-        <button class="recenter" id="recenter-map" type="button" hidden>Recenter map</button>
+        <p id="traffic-status" role="status">Loading the map…</p>
+        <div class="traffic-actions">
+          <button class="recenter" id="recenter-map" type="button" hidden>Recenter map</button>
+          <button class="recenter" id="retry-traffic" type="button" hidden>Retry traffic</button>
+        </div>
       </div>
       <p class="attribution">
         <a href="https://openfreemap.org/">OpenFreeMap</a> ·

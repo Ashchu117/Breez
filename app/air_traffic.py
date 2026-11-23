@@ -7,7 +7,7 @@ from time import monotonic, time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 FEED_POINT_URL = "https://api.adsb.lol/v2/point"
 RADIUS_NM = 50
 REFRESH_SECONDS = 240
+RETRY_SECONDS = 30
+MAX_SNAPSHOT_AGE_SECONDS = 15 * 60
 MAX_POSITION_AGE_SECONDS = 90
 MAX_FEED_BYTES = 512 * 1024
 # Leave headroom under the unauthenticated 500 requests per IP per UTC day.
@@ -31,6 +33,7 @@ class CachedRegion:
     lock: Lock = field(default_factory=Lock)
     snapshot: dict | None = None
     refresh_at: float = 0.0
+    delayed: bool = False
 
 
 regions: dict[tuple[float, float], CachedRegion] = {}
@@ -100,15 +103,16 @@ def reserve_request() -> bool:
 def refresh_region(cached: CachedRegion, lat: float, lon: float) -> None:
     global blocked_until
 
+    cached.delayed = True
+    cached.refresh_at = monotonic() + RETRY_SECONDS
     if not upstream_slots.acquire(blocking=False):
         return
     try:
-        cached.snapshot = None
         if not reserve_request():
-            cached.refresh_at = monotonic() + 30
             return
-        cached.refresh_at = monotonic() + REFRESH_SECONDS
         cached.snapshot = read_snapshot(lat, lon)
+        cached.delayed = False
+        cached.refresh_at = monotonic() + REFRESH_SECONDS
     except (OSError, ValueError, AttributeError) as error:
         if isinstance(error, HTTPError) and error.code == 429:
             retry_after = error.headers.get("Retry-After", "")
@@ -122,9 +126,11 @@ def refresh_region(cached: CachedRegion, lat: float, lon: float) -> None:
 
 @router.get("/air-traffic")
 def air_traffic(
+    response: Response,
     lat: float = Query(28.15, ge=24, le=31.5),
     lon: float = Query(-81.85, ge=-88, le=-79.5),
 ) -> dict:
+    response.headers["Cache-Control"] = "no-store"
     # Coarse buckets bound cache size and keep exact coordinates off the feed URL.
     center = (round(lat * 2) / 2, round(lon * 2) / 2)
     with cache_lock:
@@ -135,6 +141,9 @@ def air_traffic(
     with cached.lock:
         if monotonic() >= cached.refresh_at:
             refresh_region(cached, *center)
-        if cached.snapshot is None:
-            raise HTTPException(status_code=503, detail="Aircraft data is temporarily unavailable")
-        return cached.snapshot
+        if cached.snapshot is None or time() - cached.snapshot["observed_at"] / 1000 > MAX_SNAPSHOT_AGE_SECONDS:
+            raise HTTPException(
+                status_code=503, detail="Aircraft data is temporarily unavailable",
+                headers={"Cache-Control": "no-store"},
+            )
+        return {**cached.snapshot, "delayed": cached.delayed}
