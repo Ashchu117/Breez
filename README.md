@@ -35,7 +35,9 @@ Choose **Order food**, set a Florida drop-off point, then pick McDonald’s, Wen
 
 Restaurant search uses Photon’s OpenStreetMap fast-food data through the same public demo service as place search. It filters results by chain and the Florida boundary. Local fallback addresses are from the [McDonald’s](https://www.mcdonalds.com/us/en-us/restaurant-directory/florida/lakeland.html), [Wendy’s](https://locations.wendys.com/united-states/fl/lakeland), and [Burger King](https://www.bk.com/store-locator) locators with Census address estimates. Search coverage depends on mapped branches.
 
-The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. Choose **Describe your order** to populate this draft from plain language and answer follow-up questions. After simulating a route, choose **Explain this route** for an AI briefing, then record **Approve for simulation** or **Hold**. The decision applies to the displayed candidate for the current review. Exact device coordinates are omitted from saved tab drafts.
+**Describe your trip with AI** extracts a destination from a plain-language request. Choose a matching Florida search result before simulating the trip.
+
+The delivery draft contains a restaurant pickup, drop-off, items, custom options, quantities, and timing. Choose **Describe your order with AI** to populate this draft from plain language and answer follow-up questions. After simulating a route, choose **Explain this route** for an AI briefing, then record **Approve for simulation** or **Hold**. The decision applies to the displayed candidate for the current review. Exact device coordinates are omitted from saved tab drafts.
 
 ## Concierge and route simulation
 
@@ -47,7 +49,7 @@ See the [AAM project context](docs/aam-context.md) for Florida and federal refer
 
 ## Homepage data and licensing
 
-Guests can browse the map and draft a trip or delivery. Drafts stay in the current browser tab and survive a reload when tab storage is available. **Save trip draft** and **Save order draft** on the route preview remember the selected direct route or detour. Reopening checks it against the current FAA snapshot. Breez asks for the trip start or delivery drop-off again when the draft used device location. Booking and checkout will require sign-in once those flows are implemented.
+Guests can browse the map and draft a trip or delivery. Each home action starts a fresh plan. Multiple trip and delivery drafts stay in the current browser tab and survive a reload when tab storage is available. **Save trip draft** and **Save order draft** on the route preview remember the selected direct route or detour. Reopening checks it against the current FAA snapshot. Breez asks for the trip start or delivery drop-off again when the draft used device location. Booking and checkout will require sign-in once those flows are implemented.
 
 - [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt) uses the BSD 3-Clause license. The homepage loads a pinned build.
 - [OpenFreeMap](https://openfreemap.org/) allows commercial use of its public map service. The map credits OpenFreeMap, OpenMapTiles, and [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The underlying OpenStreetMap data is licensed under the ODbL.

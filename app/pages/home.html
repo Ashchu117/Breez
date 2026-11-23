@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=14">
+  <link rel="stylesheet" href="/static/breez.css?v=15">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=20"></script>
+  <script type="module" src="/static/home.js?v=21"></script>
 </head>
 <body>
   <header class="site-header">
@@ -24,12 +24,12 @@
       <div class="choices">
         <button class="choice" type="button" data-plan="trip" aria-haspopup="dialog">
           <span class="choice-icon" aria-hidden="true">↗</span>
-          <span><strong>Go somewhere</strong><small>Start with a destination</small></span>
+          <span><strong>Go somewhere</strong><small>Describe a trip with AI or search</small></span>
           <span class="choice-arrow" aria-hidden="true">→</span>
         </button>
         <button class="choice" type="button" data-plan="delivery" aria-haspopup="dialog">
           <span class="choice-icon choice-package" aria-hidden="true"><span></span></span>
-          <span><strong>Order food</strong><small>Choose a restaurant</small></span>
+          <span><strong>Order food</strong><small>Describe an order with AI or browse</small></span>
           <span class="choice-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -126,11 +126,20 @@
     <button class="save" id="retry-location" type="button" autofocus>Choose another location</button>
   </dialog>
   <dialog id="plan-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-header">
+      <h2 id="dialog-title"></h2>
+      <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
+    </div>
+    <details id="trip-assistant">
+      <summary>Describe your trip with AI</summary>
+      <form id="trip-assist-form">
+        <label for="trip-assist-message">Where would you like to go?</label>
+        <input id="trip-assist-message" required maxlength="500" autocomplete="off" placeholder="I’d like to visit Cocoa Beach">
+        <button class="text-button" type="submit">Find destination</button>
+        <p class="search-status" id="trip-assist-status" role="status"></p>
+      </form>
+    </details>
     <form id="plan-form">
-      <div class="dialog-header">
-        <h2 id="dialog-title"></h2>
-        <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
-      </div>
       <label for="plan-detail" id="detail-label"></label>
       <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
       <div id="trip-search">
@@ -155,8 +164,8 @@
     <button class="text-button food-back" id="food-back" type="button" hidden>← Back</button>
     <section data-food-step="chains" hidden>
       <p class="form-note" id="food-dropoff"></p>
-      <ul class="food-choices" id="supported-chains"></ul>
-      <button class="text-button" id="open-concierge" type="button">Describe your order</button>
+      <button class="save" id="open-concierge" type="button">Describe your order with AI</button>
+      <ul class="food-choices" id="supported-chains" aria-label="Browse supported chains"></ul>
     </section>
     <form id="concierge-form" data-food-step="concierge" hidden>
       <p class="form-note">Tell Breez the chain, what you want, and when. Use public places in your message.</p>

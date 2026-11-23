@@ -396,6 +396,10 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-legend i { display: inline-block; width: 0.85rem; height: 0.75rem; border: 1px dashed #ffad83; border-radius: 0.2rem; background: #ffad8333; }
 #route-line-key { width: 1.2rem; height: 0; border: 0; border-top: 3px solid #78ead5; border-radius: 0; }
 .route-summary[data-status="blocked"] #route-line-key { border-top: 3px dashed #ffad83; }
+#trip-assistant { margin: 0.7rem 0 1rem; padding: 0.65rem 0.8rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+#trip-assistant summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+#trip-assist-form { margin-top: 0.65rem; }
+#trip-assist-form button { margin-top: 0.55rem; }
 .cart-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
 .cart-actions .save { margin-top: 0; }
 @media (min-width: 761px) {

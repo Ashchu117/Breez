@@ -33,6 +33,14 @@ class ConciergeRequest(Contract):
     previous: ExtractedMission | None
 
 
+class TripAssistRequest(Contract):
+    message: str = Field(min_length=1, max_length=500)
+
+
+class TripIntent(Contract):
+    destination: str | None = Field(min_length=1, max_length=120)
+
+
 class Coordinates(Contract):
     lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
     lon: float = Field(ge=-180, le=180, allow_inf_nan=False)

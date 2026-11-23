@@ -15,10 +15,16 @@ const planInput = document.querySelector("#plan-detail");
 const simulateTrip = document.querySelector("#simulate-trip");
 const tripProgress = document.querySelector("#trip-simulation-progress");
 let tripRequest;
+let tripAssistRequest;
+const tripAssistant = document.querySelector("#trip-assistant");
+const tripAssistForm = document.querySelector("#trip-assist-form");
+const tripAssistStatus = document.querySelector("#trip-assist-status");
+const tripAssistSubmit = tripAssistForm.querySelector("button");
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 const draftStatus = document.querySelector("#draft-status");
 let draftRequest;
+let activeDraftId;
 let selectedPlan;
 let selectedDestination;
 let startingPoint = null;
@@ -40,8 +46,11 @@ const tripSearch = createPlaceSearch({
 function loadDrafts() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(draftKey) ?? "{}");
-    return new Map(Object.keys(planTypes).flatMap((type) => {
-      const value = saved?.[type];
+    const entries = Array.isArray(saved) ? saved : Object.keys(planTypes).map((type) =>
+      ({ id: type, type, value: saved?.[type] }));
+    return new Map(entries.flatMap((entry) => {
+      const { id, type, value } = entry ?? {};
+      if (typeof id !== "string" || !Object.hasOwn(planTypes, type)) return [];
       const detail = typeof value === "string" ? value : value?.detail;
       if (typeof detail !== "string" || !detail.trim() || detail.length > 240) return [];
       const mission = type === "delivery" ? readFoodMission(value?.mission) : null;
@@ -55,7 +64,7 @@ function loadDrafts() {
           preview = { candidate: route.candidate, origin };
         }
       }
-      return [[type, { detail, place, mission, preview }]];
+      return [[id, { type, detail, place, mission, preview }]];
     }));
   } catch {
     return new Map();
@@ -64,14 +73,23 @@ function loadDrafts() {
 
 function persistDrafts() {
   try {
-    const saved = Object.fromEntries(drafts);
-    if (saved.delivery?.mission?.destination?.kind === "device") {
-      saved.delivery = { ...saved.delivery, mission: { ...saved.delivery.mission, destination: null } };
-    }
+    const saved = Array.from(drafts, ([id, { type, ...value }]) => {
+      if (value.mission?.destination?.kind === "device") {
+        value.mission = { ...value.mission, destination: null };
+      }
+      return { id, type, value };
+    });
     sessionStorage.setItem(draftKey, JSON.stringify(saved));
   } catch {
     // Drafts remain available until the page closes if tab storage is disabled.
   }
+}
+
+function saveDraft(type, value) {
+  activeDraftId ??= crypto.getRandomValues(new Uint32Array(4)).join("-");
+  drafts.set(activeDraftId, { ...value, type });
+  persistDrafts();
+  renderDrafts();
 }
 
 function sameLocation(first, second) {
@@ -80,7 +98,7 @@ function sameLocation(first, second) {
 
 function openPlan(type, place) {
   if (type === "delivery") {
-    foodOrder.open(startingPoint, drafts.get(type)?.mission);
+    foodOrder.open(startingPoint, drafts.get(activeDraftId)?.mission);
     return;
   }
   selectedPlan = type;
@@ -88,7 +106,7 @@ function openPlan(type, place) {
   document.querySelector("#dialog-title").textContent = plan.title;
   document.querySelector("#detail-label").textContent = plan.label;
   planInput.placeholder = plan.placeholder;
-  const draft = drafts.get(type);
+  const draft = drafts.get(activeDraftId);
   selectedDestination = place ?? draft?.place ?? null;
   planInput.value = place?.name ?? draft?.detail ?? "";
   resetTripSimulation();
@@ -98,6 +116,9 @@ function openPlan(type, place) {
   document.querySelector("#distance-note").textContent = startingPoint
     ? "Distances are straight-line estimates." : "Set a starting point to see distances.";
   document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
+  tripAssistant.open = false;
+  tripAssistForm.reset();
+  tripAssistStatus.textContent = "";
   dialog.showModal();
 }
 
@@ -108,7 +129,8 @@ function planButton(type) {
 function renderDrafts() {
   draftSection.hidden = drafts.size === 0;
   draftList.replaceChildren();
-  for (const [type, draft] of drafts) {
+  for (const [id, draft] of drafts) {
+    const { type } = draft;
     const row = document.createElement("li");
     row.className = "draft";
     const description = document.createElement("span");
@@ -126,13 +148,14 @@ function renderDrafts() {
     edit.textContent = draft.preview ? "Open" : "Edit";
     edit.setAttribute("aria-label", `${edit.textContent} ${planTypes[type].summary.toLowerCase()}`);
     edit.addEventListener("click", () => {
+      cancelDraftRestore();
+      activeDraftId = id;
       if (draft.preview) {
         const point = type === "trip" ? draft.preview.origin : draft.mission.destination;
         if (point) restoreRouteDraft(type, draft, point);
         else askForLocation(type, draft);
         return;
       }
-      cancelDraftRestore();
       if (draft.mission?.destination) foodOrder.open(draft.mission.destination, draft.mission);
       else if (startingPoint) {
         updateMap(startingPoint);
@@ -145,7 +168,8 @@ function renderDrafts() {
     remove.setAttribute("aria-label", `Remove ${planTypes[type].summary.toLowerCase()}`);
     remove.addEventListener("click", () => {
       cancelDraftRestore();
-      drafts.delete(type);
+      drafts.delete(id);
+      if (activeDraftId === id) activeDraftId = undefined;
       persistDrafts();
       renderDrafts();
       planButton(type).focus();
@@ -159,11 +183,15 @@ function renderDrafts() {
 }
 
 for (const button of document.querySelectorAll("[data-plan]")) {
-  button.addEventListener("click", () => askForLocation(button.dataset.plan));
+  button.addEventListener("click", () => {
+    activeDraftId = undefined;
+    askForLocation(button.dataset.plan);
+  });
 }
 
 document.querySelector("#close-dialog").addEventListener("click", () => dialog.close());
 dialog.addEventListener("close", () => {
+  cancelTripAssist();
   tripSearch.reset();
   resetTripSimulation();
 });
@@ -196,7 +224,53 @@ simulateTrip.addEventListener("click", async () => {
     }
   }
 });
-planInput.addEventListener("input", () => planInput.setCustomValidity(""));
+function cancelTripAssist() {
+  tripAssistRequest?.abort();
+  tripAssistRequest = undefined;
+  tripAssistSubmit.disabled = false;
+}
+
+tripAssistForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = document.querySelector("#trip-assist-message").value.trim();
+  if (!message || tripAssistRequest) return;
+  const controller = new AbortController();
+  tripAssistRequest = controller;
+  tripAssistSubmit.disabled = true;
+  tripAssistStatus.textContent = "Reading your trip request…";
+  try {
+    const response = await fetch("/api/trip-assist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(22000)]),
+    });
+    if (!response.ok) throw new Error("AI trip planning unavailable");
+    const { destination } = await response.json();
+    if (controller.signal.aborted || !dialog.open) return;
+    if (!destination) {
+      tripAssistStatus.textContent = "Which Florida city, address, or landmark should we use?";
+      return;
+    }
+    cancelTripAssist();
+    planInput.value = destination;
+    planInput.dispatchEvent(new Event("input", { bubbles: true }));
+    tripAssistStatus.textContent = "Choose a matching destination from the suggestions below.";
+    planInput.focus();
+  } catch {
+    if (!controller.signal.aborted) tripAssistStatus.textContent = "AI trip planning is unavailable. Search for your destination below.";
+  } finally {
+    if (tripAssistRequest === controller) cancelTripAssist();
+  }
+});
+
+planInput.addEventListener("input", () => {
+  if (tripAssistRequest) {
+    cancelTripAssist();
+    tripAssistStatus.textContent = "";
+  }
+  planInput.setCustomValidity("");
+});
 
 document.querySelector("#plan-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -206,14 +280,12 @@ document.querySelector("#plan-form").addEventListener("submit", (event) => {
     planInput.reportValidity();
     return;
   }
-  const previous = drafts.get(selectedPlan);
+  const previous = drafts.get(activeDraftId);
   const preview = sameLocation(previous?.place, selectedDestination) &&
     (sameLocation(previous.preview?.origin, startingPoint) || startingPoint?.kind === "device" && previous.preview?.origin === null)
     ? previous.preview : null;
   const draft = { detail, place: selectedDestination, preview };
-  drafts.set(selectedPlan, draft);
-  persistDrafts();
-  renderDrafts();
+  saveDraft(selectedPlan, draft);
   dialog.close();
   planButton(selectedPlan).focus();
 });
@@ -358,16 +430,14 @@ saveRouteDraft.addEventListener("click", () => {
   const { mode, origin, destination } = routeMission;
   const candidate = selectedRoute === alternateRoute ? "detour" : "direct";
   if (mode === "trip") {
-    drafts.set(mode, {
+    saveDraft(mode, {
       detail: destination.name,
       place: destination,
       preview: { candidate, origin: origin.kind === "device" ? null : origin },
     });
   } else {
-    drafts.set(mode, { detail: origin.name, mission: routeMission, preview: { candidate } });
+    saveDraft(mode, { detail: origin.name, mission: routeMission, preview: { candidate } });
   }
-  persistDrafts();
-  renderDrafts();
   const label = mode === "trip" ? "Trip draft" : "Order draft";
   saveRouteStatus.textContent = label + " saved with the " + (candidate === "detour" ? "detour." : "direct route.");
 });
@@ -475,13 +545,11 @@ routeChoice.addEventListener("change", () => {
 const foodOrder = createFoodOrder({
   onRoute: showRoute,
   onSave(mission) {
-    const previous = drafts.get("delivery");
+    const previous = drafts.get(activeDraftId);
     const sameDropoff = previous?.mission?.destination === null ||
       sameLocation(previous?.mission?.destination, mission.destination);
     const preview = sameLocation(previous?.mission?.origin, mission.origin) && sameDropoff ? previous.preview : null;
-    drafts.set("delivery", { detail: mission.origin.name, mission, preview });
-    persistDrafts();
-    renderDrafts();
+    saveDraft("delivery", { detail: mission.origin.name, mission, preview });
     updateMap(mission.origin, mission.destination);
   },
 });
