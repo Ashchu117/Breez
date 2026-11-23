@@ -1,6 +1,6 @@
 """Data contracts for Breez's delivery concierge and route simulation."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
@@ -33,7 +33,7 @@ class ConciergeRequest(Contract):
     previous: ExtractedMission | None
 
 
-TripCategory = Literal["supermarket", "pharmacy", "restaurant", "cafe", "park", "hospital", "car_repair"]
+TripCategory = Annotated[str, Field(max_length=64, pattern=r"^[a-z][a-z0-9_]*(?::[a-z][a-z0-9_]*)?$")]
 
 
 class TripIntent(Contract):

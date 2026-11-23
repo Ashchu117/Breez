@@ -16,7 +16,7 @@ from app.mission_contracts import Contract, Coordinates, Place, TripCategory
 router = APIRouter(prefix="/api")
 URL = "https://photon.komoot.io/api/"
 CENSUS_PLACES = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer"
-TAGS = {"supermarket": "shop", "pharmacy": "amenity", "restaurant": "amenity",
+LEGACY_TAGS = {"supermarket": "shop", "pharmacy": "amenity", "restaurant": "amenity",
         "cafe": "amenity", "park": "leisure", "hospital": "amenity", "car_repair": "shop"}
 LIMIT_BYTES = 512 * 1024
 slots = BoundedSemaphore(2)
@@ -62,7 +62,7 @@ def city_polygons(city, cache_window):
 
 @lru_cache(maxsize=96)
 def mapped_places(category, city, lat, lon, cache_window):
-    tag = TAGS[category]
+    tag, value = category.split(":", 1)
     polygons = city_polygons(city, cache_window) if city else []
     if city and not polygons:
         return []
@@ -73,7 +73,7 @@ def mapped_places(category, city, lat, lon, cache_window):
     else:
         bounds = (lon - 0.4, lat - 0.4, lon + 0.4, lat + 0.4)
     params = urlencode({
-        "include": f"osm.{tag}.{category}", "bbox": ",".join(map(str, bounds)),
+        "include": f"osm.{tag}.{value}", "bbox": ",".join(map(str, bounds)),
         "lat": lat, "lon": lon, "zoom": 12, "limit": 50, "dedupe": 0,
     })
     payload = read_json(URL + "?" + params, timeout=8)
@@ -81,7 +81,7 @@ def mapped_places(category, city, lat, lon, cache_window):
     for feature in payload["features"]:
         tags = feature["properties"]
         name = tags.get("name")
-        if (tags.get("osm_key") != tag or tags.get("osm_value") != category
+        if (tags.get("osm_key") != tag or tags.get("osm_value") != value
                 or not name or len(name) > 240 or feature["geometry"]["type"] != "Point"):
             continue
         longitude, latitude = feature["geometry"]["coordinates"]
@@ -100,6 +100,11 @@ def mapped_places(category, city, lat, lon, cache_window):
 @router.post("/trip-places")
 def trip_places(payload: TripPlacesRequest, response: Response) -> list[Place]:
     response.headers["Cache-Control"] = "no-store"
+    category = payload.category
+    if ":" not in category:
+        if category not in LEGACY_TAGS:
+            raise HTTPException(422, "Use a mapped place category.")
+        category = f"{LEGACY_TAGS[category]}:{category}"
     city = payload.city
     if city and (len(city) > 80 or not re.fullmatch(r"[\w .'-]+", city)):
         raise HTTPException(422, "Use a Florida city name.")
@@ -110,7 +115,7 @@ def trip_places(payload: TripPlacesRequest, response: Response) -> list[Place]:
     if not slots.acquire(blocking=False):
         raise HTTPException(503, "Place search is busy. Try again.")
     try:
-        return mapped_places(payload.category, city, None if city else lat, None if city else lon, int(monotonic() // 300))
+        return mapped_places(category, city, None if city else lat, None if city else lon, int(monotonic() // 300))
     except (OSError, ValueError, TypeError, AttributeError, KeyError):
         raise HTTPException(503, "Category search is temporarily unavailable.") from None
     finally:

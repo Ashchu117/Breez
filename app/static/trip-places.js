@@ -1,7 +1,7 @@
 import { regionalPoint } from "./geography.js?v=1";
 import { distanceMiles } from "./places.js?v=9";
 
-export const tripCategories = {
+const categoryNames = {
   supermarket: "Supermarkets",
   pharmacy: "Pharmacies",
   restaurant: "Restaurants",
@@ -9,7 +9,14 @@ export const tripCategories = {
   park: "Parks",
   hospital: "Hospitals",
   car_repair: "Auto repair shops",
+  video_games: "Video game stores",
+  games: "Tabletop game stores",
 };
+
+export function tripCategoryName(category) {
+  const value = category.split(":").at(-1);
+  return Object.hasOwn(categoryNames, value) ? categoryNames[value] : value.replaceAll("_", " ");
+}
 
 export async function findTripPlaces(category, city, origin, signal) {
   const response = await fetch("/api/trip-places", {

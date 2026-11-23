@@ -3,7 +3,7 @@ import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=7";
 import { createFoodOrder, readFoodMission } from "./food-order.js?v=7";
 import { simulateMission } from "./simulation.js?v=3";
-import { findTripPlaces, tripCategories } from "./trip-places.js?v=2";
+import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=3";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -258,14 +258,14 @@ tripAssistForm.addEventListener("submit", async (event) => {
     tripSearch.reset();
     resetTripSimulation();
     const { destination, category, city, follow_up: followUp } = intent;
-    if (followUp || (!destination && !Object.hasOwn(tripCategories, category))) {
+    if (followUp || (!destination && !category)) {
       tripAssistStatus.textContent = followUp || "Which Florida city, address, or landmark should we use?";
       tripAssistMessage.value = "";
       tripAssistMessage.focus();
       return;
     }
-    if (Object.hasOwn(tripCategories, category) && category) {
-      const label = tripCategories[category];
+    if (category) {
+      const label = tripCategoryName(category);
       const area = city ? " in " + city : " near your starting area";
       tripAssistStatus.textContent = "Looking for " + label.toLowerCase() + area + "…";
       let places;
@@ -283,7 +283,7 @@ tripAssistForm.addEventListener("submit", async (event) => {
       tripSearch.setSuggestions(places);
       tripAssistStatus.textContent = places.length
         ? "Choose a matching place below. Results are ordered by straight-line distance from your start."
-        : "I didn’t find mapped " + label.toLowerCase() + area + ". Try a nearby city or a business name.";
+        : "I didn’t find a mapped match for " + label.toLowerCase() + area + ". Try a nearby city or a business name.";
       if (places.length) planInput.focus();
       return;
     }
