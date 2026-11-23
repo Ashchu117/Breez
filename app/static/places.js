@@ -453,5 +453,12 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
   }
 
   setEnabled(true);
-  return { reset, setEnabled };
+  return {
+    reset,
+    setEnabled,
+    setSuggestions(places) {
+      reset();
+      showResults(places);
+    },
+  };
 }

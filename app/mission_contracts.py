@@ -33,12 +33,19 @@ class ConciergeRequest(Contract):
     previous: ExtractedMission | None
 
 
-class TripAssistRequest(Contract):
-    message: str = Field(min_length=1, max_length=500)
+TripCategory = Literal["supermarket", "pharmacy", "restaurant", "cafe", "park", "hospital"]
 
 
 class TripIntent(Contract):
     destination: str | None = Field(min_length=1, max_length=120)
+    category: TripCategory | None
+    city: str | None = Field(min_length=1, max_length=80)
+    follow_up: str | None = Field(min_length=1, max_length=220)
+
+
+class TripAssistRequest(Contract):
+    message: str = Field(min_length=1, max_length=500)
+    previous: TripIntent | None = None
 
 
 class Coordinates(Contract):

@@ -1,8 +1,9 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=8";
+import { createPlaceSearch, isPlace } from "./places.js?v=9";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=7";
 import { createFoodOrder, readFoodMission } from "./food-order.js?v=7";
 import { simulateMission } from "./simulation.js?v=3";
+import { findTripPlaces, tripCategories } from "./trip-places.js?v=1";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -16,8 +17,10 @@ const simulateTrip = document.querySelector("#simulate-trip");
 const tripProgress = document.querySelector("#trip-simulation-progress");
 let tripRequest;
 let tripAssistRequest;
+let tripIntent;
 const tripAssistant = document.querySelector("#trip-assistant");
 const tripAssistForm = document.querySelector("#trip-assist-form");
+const tripAssistMessage = document.querySelector("#trip-assist-message");
 const tripAssistStatus = document.querySelector("#trip-assist-status");
 const tripAssistSubmit = tripAssistForm.querySelector("button");
 const draftSection = document.querySelector("#drafts");
@@ -118,6 +121,7 @@ function openPlan(type, place) {
   document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
   tripAssistant.open = false;
   tripAssistForm.reset();
+  tripIntent = null;
   tripAssistStatus.textContent = "";
   dialog.showModal();
 }
@@ -232,7 +236,7 @@ function cancelTripAssist() {
 
 tripAssistForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const message = document.querySelector("#trip-assist-message").value.trim();
+  const message = tripAssistMessage.value.trim();
   if (!message || tripAssistRequest) return;
   const controller = new AbortController();
   tripAssistRequest = controller;
@@ -242,14 +246,45 @@ tripAssistForm.addEventListener("submit", async (event) => {
     const response = await fetch("/api/trip-assist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, previous: tripIntent }),
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(22000)]),
     });
     if (!response.ok) throw new Error("AI trip planning unavailable");
-    const { destination } = await response.json();
+    const intent = await response.json();
     if (controller.signal.aborted || !dialog.open) return;
-    if (!destination) {
-      tripAssistStatus.textContent = "Which Florida city, address, or landmark should we use?";
+    tripIntent = intent;
+    selectedDestination = null;
+    planInput.value = "";
+    tripSearch.reset();
+    resetTripSimulation();
+    const { destination, category, city, follow_up: followUp } = intent;
+    if (followUp || (!destination && !Object.hasOwn(tripCategories, category))) {
+      tripAssistStatus.textContent = followUp || "Which Florida city, address, or landmark should we use?";
+      tripAssistMessage.value = "";
+      tripAssistMessage.focus();
+      return;
+    }
+    if (Object.hasOwn(tripCategories, category) && category) {
+      const label = tripCategories[category];
+      const area = city ? " in " + city : " near your starting area";
+      tripAssistStatus.textContent = "Looking for " + label.toLowerCase() + area + "…";
+      let places;
+      try {
+        places = await findTripPlaces(category, city, startingPoint, AbortSignal.any([
+          controller.signal, AbortSignal.timeout(21000),
+        ]));
+      } catch {
+        if (!controller.signal.aborted) tripAssistStatus.textContent =
+          "I couldn’t check " + label.toLowerCase() + area + " right now. Try again or search by name.";
+        return;
+      }
+      if (controller.signal.aborted || !dialog.open) return;
+      planInput.value = label + area;
+      tripSearch.setSuggestions(places);
+      tripAssistStatus.textContent = places.length
+        ? "Choose a matching place below. Results are ordered by straight-line distance from your start."
+        : "I didn’t find mapped " + label.toLowerCase() + area + ". Try a nearby city or a business name.";
+      if (places.length) planInput.focus();
       return;
     }
     cancelTripAssist();
