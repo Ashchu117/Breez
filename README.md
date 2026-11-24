@@ -21,8 +21,6 @@ Open http://127.0.0.1:8000 for the homepage or http://127.0.0.1:8000/docs for th
 - `app/pages/` contains HTML pages and `app/static/` contains assets.
 - `requirements.txt` lists the Python dependencies.
 
-Push source changes to `main` for the palserver sync to pick up.
-
 ## Trip search and location
 
 Breez asks for a starting point when someone starts a trip or food order. Choose Florida Polytechnic University, search by place or address, or use device location on HTTPS or localhost. Started plans use a Florida origin. Both starting-point and destination suggestions are filtered to Florida and biased toward a half-degree grid near the origin. Photon provides places, streets, and mapped address points. Numbered searches use the [U.S. Census Bureau’s TIGERweb roads](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer) to complete partially typed street names and the free public [U.S. Census Bureau Geocoder](https://geocoding.geo.census.gov/geocoder/Geocoding_Services_API.html) for address-range estimates. Breez sends these lookups in a POST body and does not persist the submitted query on its server. Deerfield Beach searches recognize Little Harbor Way and Northeast 11th Way as names for the same road. Straight-line search distances are calculated in the browser. Selecting a route simulation sends the chosen coordinates to Breez's backend for evaluation. Exact device coordinates are omitted from saved drafts. The boundary comes from the [U.S. Census Bureau’s generalized 2025 state layer](https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2025/State_County/MapServer/7).
@@ -41,11 +39,7 @@ The delivery draft contains a restaurant pickup, drop-off, items, custom options
 
 ## Concierge and route simulation
 
-See the [delivery contracts](docs/delivery-contracts.md) for the model choice, proposed budget, and Python request and response schemas.
-
-## Florida advanced air mobility references
-
-See the [AAM project context](docs/aam-context.md) for Florida and federal references that inform the route simulation and judging demo.
+See the [delivery contracts](docs/delivery-contracts.md) for demo steps, API endpoints, and the scope of the FAA snapshot check.
 
 ## Homepage data and licensing
 

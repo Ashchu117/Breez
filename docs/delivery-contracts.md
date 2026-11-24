@@ -1,82 +1,29 @@
 # Breez delivery contracts
 
-## Concierge provider and cost
+## Try Breez
 
-Breez uses the hackathon's sponsored OpenRouter key with [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna) and [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs). The app, map, and route simulation run on palserver. The concierge extracts free text, asks for missing details, and hands the order to the existing branch picker and cart. The route briefing explains Python's results for the selected candidate.
+For local setup, follow the [README](../README.md#run-locally). To enable the AI features, set `OPENROUTER_API_KEY` and set `BREEZ_CONCIERGE_STATE_DIR` to a writable directory outside the checkout before starting Uvicorn. Keep your API key out of source control. Manual planning and route simulation work without AI credentials.
 
-OpenRouter lists Standard rates of $0.10 per million input tokens and $0.50 per million output tokens for Luna. Breez caps the total attempt count at 500 and limits the request size and generated output. At 4,000 input and 800 output tokens each, 500 calls would use about $0.40 in sponsor credits at those rates. The application has no paid backup key configured.
+In the app, choose **Order food**, set a Florida drop-off, and select a restaurant and mock menu items. **Describe your order with AI** can fill the order from plain language and ask for missing details. Confirm the branch and review the cart before simulating a route.
 
-## Python request and response models
+## API
 
-The canonical models are in [app/mission_contracts.py](../app/mission_contracts.py).
+Open the running app's `/docs` page for the interactive API reference. The request and response models are defined in [app/mission_contracts.py](../app/mission_contracts.py).
 
-| Boundary | Request | Response |
-| --- | --- | --- |
-| Concierge from the browser | Current message and previous extracted fields, if any | Extracted fields for the next turn. The browser asks for missing details and resolves the pickup when the user selects a branch. |
-| Model extraction | A request and the relevant prior answers | Pickup and drop-off names, cargo lines, and timing. Every key is present. Unknown values are `null`. |
-| Python simulation | A confirmed draft with both resolved locations, cargo, and timing | Ordered map points, distance, ETA when the candidate passes, assumed speed, published FAA boundary geometry, snapshot date, and structured overlap findings |
-
-A user request like “Pick up two Food item 1s with Custom option 2 from Wendy’s for Florida Poly” could produce this extraction:
-
-```json
-{
-  "origin": "Wendy’s",
-  "destination": "Florida Polytechnic University",
-  "cargo": [
-    { "name": "Food item 1", "quantity": 2, "options": ["Custom option 2"] }
-  ],
-  "timing": null
-}
-```
-
-Breez’s place lookup resolves coordinates. If multiple branches match, the resolved `origin` stays `null` until the user picks one. The browser checks for missing order details before offering the branch picker. Timing uses the two options in the current menu, **As soon as possible** and **Within one hour**. A user preference outside those options needs clarification.
-
-The existing order draft already provides `origin`, `destination`, `items`, and `timing`. The browser will map `items` to `cargo` and send each selected place's `name`, `address`, `lat`, and `lon`. The browser retains the chain and menu metadata. A device drop-off deliberately omitted from saved tab storage must be chosen again. Use public places for the judged demo and keep device coordinates out of model prompts.
-
-The route engine computes distance, ETA, and horizontal overlaps with published FAA polygons. A blocked preview identifies the area and the affected zero-based segment index. The model’s briefing consumes the engine’s result as data.
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/concierge` | Extract order details from a message and any previous answers. |
+| `POST /api/route-simulation` | Screen a confirmed trip or delivery and return map points, distance, overlap findings, and an estimated travel time if the route passes the check. |
+| `POST /api/route-alternative` | Find a detour for a confirmed trip or delivery. Returns `null` if no detour is found. |
+| `POST /api/route-briefing` | Explain the computed results for the selected candidate. The briefing prompt uses the computed screening outcome, intersecting area names, distance, and estimated time. |
 
 ## Run a route simulation
 
-`POST /api/route-simulation` accepts the `RouteRequest` schema. Use `confirmed: true` and supply Florida pickup and drop-off coordinates, cargo, and one of the timing options. The endpoint returns HTTP 422 for a missing field, an unconfirmed mission, a location outside Florida, or identical pickup and drop-off coordinates.
+For a delivery example, choose Florida Polytechnic University as the drop-off and the Wendy's at 3929 S Florida Ave in Lakeland as the pickup. For an airspace-overlap example, try a trip from Titusville to Cocoa Beach.
 
-The trip planner uses the same endpoint with `mode: "trip"`, `confirmed: true`, and `origin` and `destination` objects containing `lat` and `lon`. Trip previews use coordinates only. Cargo and timing apply to delivery requests.
-
-The initial candidate is a direct segment. The map displays nearby FAA polygons and holds a candidate for review when it touches or crosses one. Breez sums the great-circle length of each route segment and estimates travel time at a fixed 40 mph, excluding takeoff, landing, and loading.
-
-When the direct candidate is blocked, **Find a detour** calls `POST /api/route-alternative` with the same request. The planner searches a bounded grid around the trip, straightens the candidate, and rechecks each segment against the published polygons. The response is a regular route result or `null` if the search found no candidate. The user can switch between the original route and the detour on the map. The estimate covers horizontal overlap with the two downloaded sources below. Altitude, activation schedules, weather, live aircraft conflicts, and current notices require separate review.
+Breez checks horizontal overlap with a dated FAA snapshot. Estimated travel time assumes a constant 40 mph and excludes takeoff, landing, and loading. **Explain this route** summarizes the results. Reviewers can select **Hold** or approve a candidate for simulation after it passes the overlap check. The live aircraft overlay provides map context. Weather, altitude, activation schedules, live aircraft conflicts, and current flight restrictions are outside the simulation's scope.
 
 - [FAA National Security UAS Flight Restrictions](https://udds-faa.opendata.arcgis.com/datasets/0270b9d8a5d34217856cc03aaf833309_0)
-- [FAA Special Use Airspace, prohibited and restricted areas](https://adds-faa.opendata.arcgis.com/datasets/dd0d1b726e504137ab3c41b21835d05b_0)
+- [FAA Special Use Airspace](https://adds-faa.opendata.arcgis.com/datasets/dd0d1b726e504137ab3c41b21835d05b_0)
 
-Refresh the public-use FAA snapshot from the repo with `python scripts/update_faa_airspace.py`. The import selects areas whose geometry bounds intersect the Florida extent, retains FAA names and vertical limits, and stores the horizontal geometry. Commit the refreshed snapshot and restart Breez to load it. Check [current FAA flight restrictions and NOTAMs](https://www.faa.gov/uas/getting_started/temporary_flight_restrictions) separately before any real flight.
-
-In the API docs, use Florida Polytechnic University (`28.1477054, -81.8487852`) as drop-off. A pickup near 3929 S Florida Ave (`27.99247, -81.95707`) shows a preview with no listed overlap. In the trip planner, Titusville to Cocoa Beach intersects published restricted airspace in the bundled snapshot.
-
-## Brief and review a candidate
-
-**Explain this route** calls `POST /api/route-briefing` with confirmed endpoint coordinates and the selected candidate type. Breez computes the result again on the server. OpenRouter receives the screening outcome, any intersecting FAA area names, and the calculated distance and time. Addresses, endpoint coordinates, and order details stay out of the briefing prompt. The briefing uses the same request budget as order extraction.
-
-The Python result and review controls stay available during an AI outage. The reviewer can hold either candidate and can approve a candidate for simulation after it passes the snapshot overlap check. The browser keeps each decision with its candidate for the current review.
-
-## Enable the sponsored AI features on palserver
-
-Breez uses Navarro's OpenRouter credits for order extraction and the route briefing. [The workshop example](https://github.com/fpunavarro/connect-api-llm/blob/main/connect-api-llm/README.md) demonstrates the OpenAI-compatible API. Breez uses OpenRouter's Chat Completions endpoint with the existing extraction schema and leaves the manual menu available when the API is offline or credits are exhausted.
-
-Run this from the palserver host as a sudo-capable admin after the Git sync. Paste the team key only when prompted. The root-only credential file stays outside both the checkout and the SSH chroot.
-
-~~~bash
-sudo bash -c 'umask 077; install -d -m 0700 /etc/breez; read -rsp "OpenRouter API key: " key; printf "\n"; [[ "$key" =~ ^sk-or-v1-[0-9a-f]{64}$ ]] || exit 1; printf "OPENROUTER_API_KEY=%s\n" "$key" > /etc/breez/openrouter.env'
-sudo install -d /etc/systemd/system/breez.service.d
-sudo tee /etc/systemd/system/breez.service.d/concierge.conf >/dev/null <<'EOF'
-[Service]
-EnvironmentFile=/etc/breez/openrouter.env
-StateDirectory=breez
-EOF
-sudo systemctl daemon-reload
-sudo systemctl restart breez.service
-curl -fsS http://127.0.0.1:8000/health
-~~~
-
-The service stores its 500-attempt cap in SQLite under the systemd state directory. Each request is bounded before inference. Use a dedicated spending-capped team key for the public demo.
-
-For local testing, set `OPENROUTER_API_KEY` and `BREEZ_CONCIERGE_STATE_DIR` to an existing writable folder outside the checkout before starting Uvicorn. The concierge stays offline when either setting is absent.
+To refresh the bundled FAA snapshot, run `python scripts/update_faa_airspace.py` from the repo root and restart the app.
