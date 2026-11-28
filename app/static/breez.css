@@ -158,26 +158,28 @@ a { color: inherit; }
 .choice:hover .choice-arrow { transform: translateX(0.2rem); }
 
 .traffic {
+  --map-left: min(24vw, 22rem);
   position: absolute;
   inset: 0;
   z-index: -1;
   overflow: hidden;
   isolation: isolate;
-  background: #18201e;
+  background: var(--ink);
 }
 
 .map {
   position: absolute;
-  inset: 0 0 0 min(24vw, 22rem);
+  inset: 0 0 0 var(--map-left);
   background: #222e28;
 }
 
 .traffic::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 28% 0 var(--map-left);
   z-index: 1;
-  background: linear-gradient(90deg, #101715 2%, #101715 16%, #101715d0 29%, #10171538 51%, transparent 70%);
+  /* Keep the map edge covered, then dither the fade to avoid visible color steps. */
+  background: url("/static/map-fade.png") left top / 100% 96px repeat-y;
   pointer-events: none;
 }
 
