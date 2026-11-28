@@ -209,9 +209,8 @@ a { color: inherit; }
 .map .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
 .map .maplibregl-ctrl-group button:hover { background: #283b31; }
 
-.aircraft {
-  width: 17px;
-  height: 17px;
+.aircraft { width: 17px; height: 17px; }
+.aircraft, .route-aircraft-swatch {
   background: var(--accent);
   clip-path: polygon(50% 0, 58% 10%, 60% 36%, 96% 64%, 96% 76%, 60% 64%, 60% 84%, 74% 93%, 74% 100%, 50% 94%, 26% 100%, 26% 93%, 40% 84%, 40% 64%, 4% 76%, 4% 64%, 40% 36%, 42% 10%);
   pointer-events: none;
@@ -428,17 +427,36 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 .route-details { display: grid; gap: 0.7rem; margin: 1.15rem 0; }
 .route-details dt { color: var(--muted); font-size: 0.78rem; }
 .route-details dd { margin: 0.2rem 0 0; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
-.route-step { border-top: 1px solid var(--border); padding-top: 0.85rem; margin-top: 1rem; }
-.route-step h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.route-legend { margin-top: 0.8rem; padding: 0.65rem 0.75rem; background: #17231d; border-radius: 0.5rem; }
+.route-legend h3, .route-step h3 { margin: 0 0 0.45rem; font-size: 0.92rem; }
+.route-review {
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border: 1px solid #455b4e;
+  border-radius: 0.65rem;
+  background: #17231d;
+}
+.route-step + .route-step { border-top: 1px solid var(--border); padding-top: 0.7rem; margin-top: 0.7rem; }
+.route-review-button { min-height: 2.55rem; padding: 0.5rem 0.65rem; font-weight: 650; }
+#request-briefing { width: 100%; border-color: #6c8c5d; }
+#request-briefing span { margin-right: 0.25rem; }
+#approve-route:enabled { color: var(--ink); background: var(--accent); border-color: var(--accent); }
+#approve-route:enabled:hover { background: #e3ffb4; }
+#approve-route[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #466936; }
+.route-summary[data-status="blocked"] #hold-route { color: var(--ink); background: #ffad83; border-color: #ffad83; }
+.route-summary[data-status="blocked"] #hold-route:hover { background: #ffc5a9; }
+.route-summary[data-status="blocked"] #hold-route[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #a85b37; }
 .route-step .form-note { margin: 0.55rem 0 0; }
 .route-step .form-note:empty { display: none; }
 .review-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .review-actions button[aria-pressed="true"] { background: var(--accent); color: var(--ink); }
 .route-step button:disabled { opacity: 0.55; cursor: default; }
-.route-legend { display: flex; flex-wrap: wrap; gap: 0.55rem 1rem; margin-top: 1.1rem; color: var(--muted); font-size: 0.78rem; }
-.route-legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
-.route-legend > span[hidden] { display: none; }
-.route-legend i { display: inline-block; width: 0.85rem; height: 0.75rem; border: 1px dashed #ffad83; border-radius: 0.2rem; background: #ffad8333; }
+.route-legend-items { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; color: var(--muted); font-size: 0.78rem; }
+.route-legend-items > span { display: inline-flex; align-items: center; gap: 0.38rem; }
+.route-legend-items > span[hidden] { display: none; }
+.route-zone-swatch { width: 0.85rem; height: 0.75rem; border: 1px dashed #ffad83; border-radius: 0.2rem; background: #ffad8333; }
+.route-aircraft-swatch { width: 0.8rem; height: 0.8rem; }
+.route-source { margin: 1.1rem 0 0; padding-top: 0.85rem; border-top: 1px solid var(--border); }
 #route-line-key { width: 1.2rem; height: 0; border: 0; border-top: 3px solid #78ead5; border-radius: 0; }
 .route-summary[data-status="blocked"] #route-line-key { border-top: 3px dashed #ffad83; }
 #trip-assistant { margin: 0.7rem 0 1rem; padding: 0.65rem 0.8rem; border: 1px solid var(--border); border-radius: 0.5rem; }
