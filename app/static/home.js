@@ -48,6 +48,7 @@ const tripSearch = createPlaceSearch({
   focusAfterSelect: () => tripAssistant.hidden ? planInput : simulateTrip,
   onSelect: (place) => {
     selectedDestination = place;
+    if (!tripAssistant.hidden) tripAssistStatus.textContent = "Selected: " + place.name;
     resetTripSimulation();
   },
   onType: () => {
