@@ -173,14 +173,25 @@ a { color: inherit; }
   background: #222e28;
 }
 
-.traffic::after {
+.traffic::before, .traffic::after {
   content: "";
   position: absolute;
   inset: 0 28% 0 var(--map-left);
   z-index: 1;
-  /* Keep the map edge covered, then dither the fade to avoid visible color steps. */
-  background: url("/static/map-fade.png") left top / 100% 96px repeat-y;
   pointer-events: none;
+}
+
+.traffic::before {
+  background: var(--ink);
+  mask-image: linear-gradient(to right,
+    #000 8%, #000e 20%, #000b 34%, #0007 51%,
+    #0004 68%, #0001 87%, transparent 100%);
+}
+
+.traffic::after {
+  /* Composite the grain over the finished fade at its native size. */
+  background: url("/static/map-fade-grain.png");
+  mask-image: linear-gradient(to right, transparent 3%, #000 18%, #000 91%, transparent);
 }
 
 .traffic-info, .attribution {
@@ -409,7 +420,7 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
   .planner h1 { max-width: 9ch; margin-bottom: 1.5rem; }
   .traffic { position: relative; inset: auto; z-index: auto; height: 24rem; border-top: 1px solid var(--border); }
   .map { inset: 0; }
-  .traffic::after { content: none; }
+  .traffic::before, .traffic::after { content: none; }
   .traffic-info { left: 0.75rem; right: auto; top: 0.75rem; }
   .attribution { bottom: 0.55rem; right: 0.55rem; max-width: calc(100% - 1.1rem); }
   .map .maplibregl-ctrl-bottom-right { bottom: 4.25rem; right: 0.25rem; }
@@ -423,6 +434,7 @@ dialog input { display: block; width: 100%; margin-top: 0.5rem; padding: 0.7rem;
 }
 .home[data-route-view] .planner { display: none; }
 .home[data-route-view] .traffic { position: relative; z-index: auto; min-height: 32rem; }
+.home[data-route-view] .traffic::before,
 .home[data-route-view] .traffic::after { content: none; }
 .home[data-route-view] .map { inset: 0; }
 .route-summary { padding: clamp(1.2rem, 3vw, 2.1rem); border-right: 1px solid var(--border); }
