@@ -1,6 +1,6 @@
 import { createPlaceSearch, isPlace, searchPlaces } from "./places.js?v=10";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
-import { startMap } from "./traffic.js?v=7";
+import { startMap } from "./traffic.js?v=8";
 import { createFoodOrder, readFoodMission } from "./food-order.js?v=8";
 import { simulateMission } from "./simulation.js?v=3";
 import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=4";

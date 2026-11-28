@@ -5,6 +5,7 @@ const title = document.querySelector("#traffic-area");
 const trafficStatus = document.querySelector("#traffic-status");
 const trafficPanel = document.querySelector(".traffic-info");
 const recenter = document.querySelector("#recenter-map");
+const mouseGuide = document.querySelector("#map-mouse-guide");
 const retryTraffic = document.querySelector("#retry-traffic");
 const MAX_SNAPSHOT_AGE = 15 * 60 * 1000;
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -33,14 +34,14 @@ export function startMap() {
       minZoom: 5,
       maxZoom: 15,
       attributionControl: false,
-      scrollZoom: false,
+      scrollZoom: true,
     });
   } catch {
     trafficStatus.textContent = "Map unavailable";
     return () => {};
   }
 
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
   let center = floridaPoly;
   let markers = [];
   let lastSnapshot;
@@ -171,6 +172,7 @@ export function startMap() {
     drawRoute = installRouteOverlay(map);
     drawRoute(deliveryRoute);
     recenter.hidden = false;
+    mouseGuide.hidden = false;
     recenter.addEventListener("click", moveToArea);
     retryTraffic.addEventListener("click", refreshTraffic);
     refreshTraffic();

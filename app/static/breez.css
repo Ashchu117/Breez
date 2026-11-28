@@ -198,6 +198,14 @@ a { color: inherit; }
 .traffic-info[data-available] .traffic-dot { background: var(--accent); }
 .traffic-info[data-delayed] .traffic-dot { background: #ffad83; }
 .traffic-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.map-mouse-guide { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.map-mouse-guide h3 { margin: 0 0 0.35rem; font-size: 0.78rem; font-weight: 650; }
+.map-mouse-guide dl { display: grid; grid-template-columns: auto auto; gap: 0.24rem 0.75rem; margin: 0; font-size: 0.73rem; }
+.map-mouse-guide dt { color: var(--muted); }
+.map-mouse-guide dd { margin: 0; }
+@media not (any-pointer: fine) {
+  .map-mouse-guide { display: none; }
+}
 .aircraft[data-delayed] { opacity: 0.5; }
 .recenter { margin-top: 0.5rem; padding: 0.25rem 0; border: 0; background: transparent; color: var(--accent); font-size: 0.78rem; }
 .recenter:hover { text-decoration: underline; }
