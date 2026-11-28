@@ -309,7 +309,7 @@ export function createFoodOrder({ onSave, onRoute }) {
   });
 
   return {
-    open(point, mission) {
+    open(point, mission, useAI = false) {
       conversation = undefined;
       suggestion = undefined;
       dropoff = point;
@@ -319,7 +319,10 @@ export function createFoodOrder({ onSave, onRoute }) {
       timing.value = mission?.timing ?? "As soon as possible";
       dialog.showModal();
       if (pickup) showCart();
-      else showChains();
+      else if (useAI) {
+        showConcierge();
+        message.focus();
+      } else showChains();
     },
   };
 }

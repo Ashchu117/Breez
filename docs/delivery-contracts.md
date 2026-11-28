@@ -4,7 +4,7 @@
 
 For local setup, follow the [README](../README.md#run-locally). To enable the AI features, set `OPENROUTER_API_KEY` and set `BREEZ_CONCIERGE_STATE_DIR` to a writable directory outside the checkout before starting Uvicorn. Keep your API key out of source control. Manual planning and route simulation work without AI credentials.
 
-In the app, choose **Order food**, set a Florida drop-off, and select a restaurant and mock menu items. **Describe your order with AI** can fill the order from plain language and ask for missing details. Confirm the branch and review the cart before simulating a route.
+In the app, choose **Order food**, pick **Use AI** or **Do it manually**, and set a Florida drop-off. The AI flow can fill the order from plain language and ask for missing details. The manual flow lets you select a restaurant and mock menu items. Confirm the branch and review the cart before simulating a route.
 
 ## API
 

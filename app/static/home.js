@@ -1,7 +1,7 @@
 import { createPlaceSearch, isPlace } from "./places.js?v=9";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=7";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=7";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=8";
 import { simulateMission } from "./simulation.js?v=3";
 import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=3";
 
@@ -99,9 +99,9 @@ function sameLocation(first, second) {
   return first && second && first.lat === second.lat && first.lon === second.lon;
 }
 
-function openPlan(type, place) {
+function openPlan(type, place, useAI = false) {
   if (type === "delivery") {
-    foodOrder.open(startingPoint, drafts.get(activeDraftId)?.mission);
+    foodOrder.open(startingPoint, drafts.get(activeDraftId)?.mission, useAI);
     return;
   }
   selectedPlan = type;
@@ -119,11 +119,12 @@ function openPlan(type, place) {
   document.querySelector("#distance-note").textContent = startingPoint
     ? "Distances are straight-line estimates." : "Set a starting point to see distances.";
   document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
-  tripAssistant.open = false;
+  tripAssistant.open = useAI;
   tripAssistForm.reset();
   tripIntent = null;
   tripAssistStatus.textContent = "";
   dialog.showModal();
+  if (useAI) tripAssistMessage.focus();
 }
 
 function planButton(type) {
@@ -186,10 +187,29 @@ function renderDrafts() {
   }
 }
 
+const planningModeDialog = document.querySelector("#planning-mode-dialog");
+let planToStart;
+
 for (const button of document.querySelectorAll("[data-plan]")) {
   button.addEventListener("click", () => {
+    cancelDraftRestore();
+    planToStart = button.dataset.plan;
+    const delivery = planToStart === "delivery";
+    document.querySelector("#planning-mode-title").textContent = delivery ? "Order food" : "Plan a trip";
+    document.querySelector("#planning-ai-description").textContent = delivery
+      ? "Describe what you’d like" : "Describe your destination";
+    document.querySelector("#planning-manual-description").textContent = delivery
+      ? "Browse restaurants and menus" : "Search by place or address";
+    planningModeDialog.showModal();
+  });
+}
+
+document.querySelector("#close-planning-mode").addEventListener("click", () => planningModeDialog.close());
+for (const [id, useAI] of [["choose-ai-plan", true], ["choose-manual-plan", false]]) {
+  document.getElementById(id).addEventListener("click", () => {
+    planningModeDialog.close();
     activeDraftId = undefined;
-    askForLocation(button.dataset.plan);
+    askForLocation(planToStart, null, useAI);
   });
 }
 
@@ -610,6 +630,7 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
 });
 let locationAttempt = 0;
 let pendingPlan = null;
+let pendingUseAI = false;
 let pendingRouteDraft = null;
 let locationBusy = false;
 let permissionState;
@@ -683,10 +704,12 @@ async function setStartingPoint(point) {
   updateMap(point);
   const plan = pendingPlan;
   const routeDraft = pendingRouteDraft;
+  const useAI = pendingUseAI;
   pendingPlan = null;
+  pendingUseAI = false;
   pendingRouteDraft = null;
   if (routeDraft) restoreRouteDraft(plan, routeDraft, point);
-  else if (plan) openPlan(plan);
+  else if (plan) openPlan(plan, undefined, useAI);
 }
 
 const originSearch = createPlaceSearch({
@@ -702,9 +725,10 @@ const originSearch = createPlaceSearch({
   },
 });
 
-function askForLocation(type = null, routeDraft = null) {
+function askForLocation(type = null, routeDraft = null, useAI = false) {
   cancelDraftRestore();
   pendingPlan = type;
+  pendingUseAI = useAI;
   pendingRouteDraft = routeDraft;
   originInput.value = "";
   originSearch.reset();
@@ -768,7 +792,7 @@ locationButton.addEventListener("click", () => askForLocation());
 document.querySelector("#use-campus").addEventListener("click", () => setStartingPoint(floridaPoly));
 document.querySelector("#cancel-location").addEventListener("click", () => locationDialog.close());
 document.querySelector("#retry-location").addEventListener("click", () => coverageDialog.close());
-coverageDialog.addEventListener("close", () => askForLocation(pendingPlan, pendingRouteDraft));
+coverageDialog.addEventListener("close", () => askForLocation(pendingPlan, pendingRouteDraft, pendingUseAI));
 locationDialog.addEventListener("close", () => {
   cancelDeviceWatch();
   locationAttempt++;

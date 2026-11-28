@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=15">
+  <link rel="stylesheet" href="/static/breez.css?v=16">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=24"></script>
+  <script type="module" src="/static/home.js?v=25"></script>
 </head>
 <body>
   <header class="site-header">
@@ -102,6 +102,22 @@
       </p>
     </section>
   </main>
+  <dialog id="planning-mode-dialog" aria-labelledby="planning-mode-title">
+    <button class="close planning-mode-close" type="button" id="close-planning-mode" aria-label="Close planning options">×</button>
+    <h2 id="planning-mode-title">Plan a trip</h2>
+    <div class="planning-modes">
+      <button class="planning-mode planning-mode-ai" id="choose-ai-plan" type="button" autofocus>
+        <span class="planning-mode-icon" aria-hidden="true">✦</span>
+        <strong>Use AI</strong>
+        <small id="planning-ai-description">Describe your destination</small>
+      </button>
+      <button class="planning-mode" id="choose-manual-plan" type="button">
+        <span class="planning-mode-icon" aria-hidden="true">↗</span>
+        <strong>Do it manually</strong>
+        <small id="planning-manual-description">Search by place or address</small>
+      </button>
+    </div>
+  </dialog>
   <dialog id="location-dialog" aria-labelledby="location-title">
     <div class="dialog-header">
       <h2 id="location-title">Where are you starting?</h2>
