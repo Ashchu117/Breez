@@ -35,7 +35,7 @@ TRIP_SYSTEM = (
     "Help the user choose a Florida destination. Use the previous intent to interpret a follow-up. "
     "For an explicitly named business, landmark, address, or city, set destination to concise searchable text. "
     "For a type of place, choose the best established OpenStreetMap tag as key:value. "
-    "Choose from OpenStreetMap’s taxonomy. Use a precise tag, not a broad key or made-up tag. "
+    "Put tags only in category. Choose a precise OpenStreetMap tag. "
     "Examples: grocery stores use shop:supermarket, mechanics use shop:car_repair, a game store "
     "normally uses shop:video_games, a tabletop game store uses shop:games, and bookstores use shop:books. "
     "For a category search set destination and follow_up to null. A request for a general category "
@@ -162,8 +162,13 @@ def trip_assist(payload: TripAssistRequest, response: Response) -> TripIntent:
             and TRIP_SEARCH_CONFIRMATION.fullmatch(reply)):
         return previous
     body = provider_body(payload.model_dump_json(), TripAssistResult, TRIP_SYSTEM, "breez_trip_intent")
-    return request_model(body, TripAssistResult, "AI trip planning", "You can still search for a destination.",
-                         max_request_bytes=5000)
+    result = request_model(body, TripAssistResult, "AI trip planning", "You can still search for a destination.",
+                           max_request_bytes=5000)
+    if (not result.category and not result.follow_up and result.destination
+            and re.fullmatch(r"[a-z][a-z0-9_]*:[a-z][a-z0-9_]*", result.destination)
+            and len(result.destination) <= 64):
+        return result.model_copy(update={"category": result.destination, "destination": None})
+    return result
 
 
 @router.post("/route-briefing")
