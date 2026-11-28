@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=17">
+  <link rel="stylesheet" href="/static/breez.css?v=18">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=25"></script>
+  <script type="module" src="/static/home.js?v=26"></script>
 </head>
 <body>
   <header class="site-header">
@@ -152,31 +152,39 @@
       <h2 id="dialog-title"></h2>
       <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
     </div>
-    <details id="trip-assistant">
-      <summary>Describe your trip with AI</summary>
+    <section id="trip-assistant" aria-label="AI trip planning" hidden>
+      <div id="trip-assist-question" hidden>
+        <p id="trip-assist-prompt" role="status"></p>
+        <div id="trip-assist-choices" class="trip-assist-choices"></div>
+      </div>
       <form id="trip-assist-form">
-        <label for="trip-assist-message">Where would you like to go?</label>
+        <label for="trip-assist-message" id="trip-assist-label">Where would you like to go?</label>
         <input id="trip-assist-message" required maxlength="500" autocomplete="off" placeholder="I’d like to visit Cocoa Beach">
-        <button class="text-button" type="submit">Find destination</button>
+        <button class="save" id="trip-assist-submit" type="submit">Find destination</button>
         <p class="search-status" id="trip-assist-status" role="status"></p>
       </form>
-    </details>
+    </section>
     <form id="plan-form">
-      <label for="plan-detail" id="detail-label"></label>
-      <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
+      <div id="manual-destination">
+        <label for="plan-detail" id="detail-label"></label>
+        <input id="plan-detail" autocomplete="off" maxlength="120" required autofocus>
+      </div>
       <div id="trip-search">
         <ul class="place-results" id="destination-results" role="listbox" aria-label="Destination suggestions" hidden></ul>
         <p class="search-status" id="destination-status" role="status"></p>
         <p class="form-note distance-note" id="distance-note">Distances are straight-line estimates.</p>
         <p class="form-note place-credit"><a href="https://www.openstreetmap.org/copyright">Place data © OpenStreetMap contributors</a> · <a href="https://www.census.gov/data/developers/data-sets/Geocoding-services.html">U.S. Census Bureau address lookup</a></p>
       </div>
-      <p class="form-note" id="plan-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
-      <div class="cart-actions">
-        <button class="save" id="simulate-trip" type="button" disabled>Simulate trip route</button>
-        <button class="text-button" type="submit">Save draft</button>
+      <div id="trip-plan-actions">
+        <p class="form-note" id="plan-note">This draft stays in this tab. Sign-in will be required to book or place an order.</p>
+        <div class="cart-actions">
+          <button class="save" id="simulate-trip" type="button" disabled>Simulate trip route</button>
+          <button class="text-button" type="submit">Save draft</button>
+        </div>
+        <p class="search-status" id="trip-simulation-progress" role="status"></p>
       </div>
-      <p class="search-status" id="trip-simulation-progress" role="status"></p>
     </form>
+    <button class="text-button" id="switch-trip-mode" type="button">Use AI instead</button>
   </dialog>
   <dialog id="food-dialog" aria-labelledby="food-title">
     <div class="dialog-header">

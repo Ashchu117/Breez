@@ -1,9 +1,9 @@
-import { createPlaceSearch, isPlace } from "./places.js?v=9";
+import { createPlaceSearch, isPlace, searchPlaces } from "./places.js?v=10";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=7";
 import { createFoodOrder, readFoodMission } from "./food-order.js?v=8";
 import { simulateMission } from "./simulation.js?v=3";
-import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=3";
+import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=4";
 
 const planTypes = {
   trip: { title: "Plan a trip", label: "Where do you want to go?", placeholder: "Enter a destination", summary: "Trip draft" },
@@ -22,7 +22,15 @@ const tripAssistant = document.querySelector("#trip-assistant");
 const tripAssistForm = document.querySelector("#trip-assist-form");
 const tripAssistMessage = document.querySelector("#trip-assist-message");
 const tripAssistStatus = document.querySelector("#trip-assist-status");
-const tripAssistSubmit = tripAssistForm.querySelector("button");
+const tripAssistSubmit = document.querySelector("#trip-assist-submit");
+const tripAssistQuestion = document.querySelector("#trip-assist-question");
+const tripAssistPrompt = document.querySelector("#trip-assist-prompt");
+const tripAssistChoices = document.querySelector("#trip-assist-choices");
+const tripAssistLabel = document.querySelector("#trip-assist-label");
+const manualDestination = document.querySelector("#manual-destination");
+const tripModeSwitch = document.querySelector("#switch-trip-mode");
+const tripSearchPanel = document.querySelector("#trip-search");
+const tripPlanActions = document.querySelector("#trip-plan-actions");
 const draftSection = document.querySelector("#drafts");
 const draftList = document.querySelector("#draft-list");
 const draftStatus = document.querySelector("#draft-status");
@@ -36,6 +44,8 @@ const tripSearch = createPlaceSearch({
   list: document.querySelector("#destination-results"),
   status: document.querySelector("#destination-status"),
   getOrigin: () => startingPoint,
+  standaloneResults: () => !tripAssistant.hidden,
+  focusAfterSelect: () => tripAssistant.hidden ? planInput : simulateTrip,
   onSelect: (place) => {
     selectedDestination = place;
     resetTripSimulation();
@@ -112,20 +122,37 @@ function openPlan(type, place, useAI = false) {
   const draft = drafts.get(activeDraftId);
   selectedDestination = place ?? draft?.place ?? null;
   planInput.value = place?.name ?? draft?.detail ?? "";
-  resetTripSimulation();
   planInput.setCustomValidity("");
-  tripSearch.setEnabled(type === "trip");
-  document.querySelector("#trip-search").hidden = type !== "trip";
+  setTripMode(useAI);
   document.querySelector("#distance-note").textContent = startingPoint
     ? "Distances are straight-line estimates." : "Set a starting point to see distances.";
   document.querySelector("#destination-status").textContent = selectedDestination?.address ?? "";
-  tripAssistant.open = useAI;
-  tripAssistForm.reset();
-  tripIntent = null;
-  tripAssistStatus.textContent = "";
   dialog.showModal();
-  if (useAI) tripAssistMessage.focus();
+  (useAI ? tripAssistMessage : planInput).focus();
 }
+
+function setTripMode(useAI) {
+  cancelTripAssist();
+  tripSearch.reset();
+  tripIntent = null;
+  tripAssistForm.reset();
+  showTripQuestion();
+  tripAssistStatus.textContent = "";
+  tripAssistant.hidden = !useAI;
+  manualDestination.hidden = useAI;
+  planInput.disabled = useAI;
+  tripModeSwitch.textContent = useAI ? "Switch to manual search" : "Use AI instead";
+  if (selectedDestination) {
+    document.querySelector("#destination-status").textContent = selectedDestination.name + " · " + selectedDestination.address;
+  }
+  resetTripSimulation();
+}
+
+tripModeSwitch.addEventListener("click", () => {
+  const useAI = tripAssistant.hidden;
+  setTripMode(useAI);
+  (useAI ? tripAssistMessage : planInput).focus();
+});
 
 function planButton(type) {
   return document.querySelector(`[data-plan="${type}"]`);
@@ -223,13 +250,16 @@ dialog.addEventListener("close", () => {
 function resetTripSimulation() {
   tripRequest?.abort();
   tripRequest = undefined;
+  const awaitingAiSelection = !tripAssistant.hidden && !selectedDestination;
+  tripSearchPanel.hidden = awaitingAiSelection;
+  tripPlanActions.hidden = awaitingAiSelection;
   simulateTrip.disabled = !startingPoint || !selectedDestination;
   tripProgress.textContent = simulateTrip.disabled ? "Choose a destination suggestion to simulate a route." : "";
 }
 
 simulateTrip.addEventListener("click", async () => {
   if (simulateTrip.disabled || !startingPoint || !selectedDestination) return;
-  const mission = { mode: "trip", origin: startingPoint, destination: selectedDestination };
+  const mission = { mode: "trip", origin: startingPoint, destination: selectedDestination, useAI: !tripAssistant.hidden };
   const controller = new AbortController();
   tripRequest = controller;
   simulateTrip.disabled = true;
@@ -254,9 +284,31 @@ function cancelTripAssist() {
   tripAssistSubmit.disabled = false;
 }
 
-tripAssistForm.addEventListener("submit", async (event) => {
+function showTripQuestion(intent) {
+  const question = intent?.follow_up;
+  tripAssistQuestion.hidden = !question;
+  tripAssistPrompt.textContent = question || "";
+  tripAssistLabel.textContent = question ? "Your answer" : "Where would you like to go?";
+  tripAssistMessage.placeholder = question ? "Type your own answer" : "I’d like to visit Cocoa Beach";
+  tripAssistSubmit.textContent = question ? "Send answer" : "Find destination";
+  tripAssistChoices.replaceChildren();
+  if (!question) return;
+  for (const reply of new Set(intent.reply_options ?? [])) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button";
+    button.textContent = reply;
+    button.addEventListener("click", () => submitTripAssist(reply));
+    tripAssistChoices.append(button);
+  }
+}
+
+tripAssistForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const message = tripAssistMessage.value.trim();
+  submitTripAssist(tripAssistMessage.value.trim());
+});
+
+async function submitTripAssist(message) {
   if (!message || tripAssistRequest) return;
   const controller = new AbortController();
   tripAssistRequest = controller;
@@ -279,45 +331,41 @@ tripAssistForm.addEventListener("submit", async (event) => {
     resetTripSimulation();
     const { destination, category, city, follow_up: followUp } = intent;
     if (followUp || (!destination && !category)) {
-      tripAssistStatus.textContent = followUp || "Which Florida city, address, or landmark should we use?";
+      showTripQuestion(followUp ? intent : { follow_up: "Which Florida city, address, or landmark should we use?" });
+      tripAssistStatus.textContent = "";
       tripAssistMessage.value = "";
-      tripAssistMessage.focus();
+      (tripAssistChoices.firstElementChild || tripAssistMessage).focus();
       return;
     }
-    if (category) {
-      const label = tripCategoryName(category);
-      const area = city ? " in " + city : " near your starting area";
-      tripAssistStatus.textContent = "Looking for " + label.toLowerCase() + area + "…";
-      let places;
-      try {
-        places = await findTripPlaces(category, city, startingPoint, AbortSignal.any([
-          controller.signal, AbortSignal.timeout(21000),
-        ]));
-      } catch {
-        if (!controller.signal.aborted) tripAssistStatus.textContent =
-          "I couldn’t check " + label.toLowerCase() + area + " right now. Try again or search by name.";
-        return;
-      }
-      if (controller.signal.aborted || !dialog.open) return;
-      planInput.value = label + area;
-      tripSearch.setSuggestions(places);
-      tripAssistStatus.textContent = places.length
-        ? "Choose a matching place below. Results are ordered by straight-line distance from your start."
-        : "I didn’t find a mapped match for " + label.toLowerCase() + area + ". Try a nearby city or a business name.";
-      if (places.length) planInput.focus();
+
+    showTripQuestion();
+    const target = category
+      ? tripCategoryName(category).toLowerCase() + (city ? " in " + city : " near your starting area")
+      : destination;
+    tripAssistStatus.textContent = "Looking for " + target + "…";
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(21000)]);
+    let places;
+    try {
+      places = category ? await findTripPlaces(category, city, startingPoint, signal) :
+        (await searchPlaces(destination, signal, startingPoint)).places.filter(place => place.kind !== "completion");
+    } catch {
+      if (!controller.signal.aborted) tripAssistStatus.textContent =
+        "I couldn’t look up " + target + " right now. Try again or switch to manual search.";
       return;
     }
-    cancelTripAssist();
-    planInput.value = destination;
-    planInput.dispatchEvent(new Event("input", { bubbles: true }));
-    tripAssistStatus.textContent = "Choose a matching destination from the suggestions below.";
-    planInput.focus();
+    if (controller.signal.aborted || !dialog.open) return;
+    tripSearch.setSuggestions(places);
+    tripSearchPanel.hidden = places.length === 0;
+    tripAssistStatus.textContent = places.length
+      ? "Choose a destination below." + (category ? " Matches are ordered by distance from your start." : "")
+      : "I didn’t find a mapped match for " + target + ". Try another place or switch to manual search.";
+    (document.querySelector("#destination-results li") || tripAssistMessage).focus();
   } catch {
-    if (!controller.signal.aborted) tripAssistStatus.textContent = "AI trip planning is unavailable. Search for your destination below.";
+    if (!controller.signal.aborted) tripAssistStatus.textContent = "AI trip planning is unavailable. Try again or switch to manual search.";
   } finally {
     if (tripAssistRequest === controller) cancelTripAssist();
   }
-});
+}
 
 planInput.addEventListener("input", () => {
   if (tripAssistRequest) {
@@ -622,7 +670,7 @@ document.querySelector("#back-to-order").addEventListener("click", () => {
   if (mission.mode === "trip") {
     startingPoint = mission.origin;
     updateMap(mission.origin);
-    openPlan("trip", mission.destination);
+    openPlan("trip", mission.destination, mission.useAI);
   } else {
     updateMap(mission.origin, mission.destination);
     foodOrder.open(mission.destination, mission);

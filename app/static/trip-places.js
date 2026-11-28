@@ -11,6 +11,7 @@ const categoryNames = {
   car_repair: "Auto repair shops",
   video_games: "Video game stores",
   games: "Tabletop game stores",
+  stripclub: "Strip clubs",
 };
 
 export function tripCategoryName(category) {

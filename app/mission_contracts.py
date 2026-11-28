@@ -41,6 +41,11 @@ class TripIntent(Contract):
     category: TripCategory | None
     city: str | None = Field(min_length=1, max_length=80)
     follow_up: str | None = Field(min_length=1, max_length=220)
+    reply_options: list[Annotated[str, Field(min_length=1, max_length=80)]] | None = Field(default=None, max_length=3)
+
+
+class TripAssistResult(TripIntent):
+    reply_options: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(max_length=3)
 
 
 class TripAssistRequest(Contract):

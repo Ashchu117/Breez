@@ -255,7 +255,7 @@ async function namedPlaces(query, bias, signal) {
   return replies.flatMap((reply) => reply.status === "fulfilled" ? reply.value : []);
 }
 
-async function searchPlaces(query, signal, origin, preview) {
+export async function searchPlaces(query, signal, origin, preview = () => {}) {
   const bias = regionalPoint(origin ?? floridaPoly);
   const key = [bias.lat, bias.lon, query.toLowerCase()].join(":");
   if (cache.has(key)) return { places: cache.get(key), partial: false };
@@ -313,7 +313,7 @@ async function searchPlaces(query, signal, origin, preview) {
   return { places, partial };
 }
 
-export function createPlaceSearch({ input, list, status, getOrigin = () => null, onSelect, onType = () => {} }) {
+export function createPlaceSearch({ input, list, status, getOrigin = () => null, onSelect, onType = () => {}, standaloneResults = () => false, focusAfterSelect = () => input }) {
   let matches = [];
   let active = -1;
   let timer;
@@ -353,7 +353,7 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
     input.value = place.name;
     onSelect(place);
     status.textContent = [placeDescription(place), getOrigin() && distanceLabel(getOrigin(), place)].filter(Boolean).join(" · ");
-    input.focus();
+    focusAfterSelect().focus();
   }
 
   function showResults(places) {
@@ -381,7 +381,15 @@ export function createPlaceSearch({ input, list, status, getOrigin = () => null,
         distance.textContent = distanceLabel(origin, place);
         option.append(distance);
       }
-      option.addEventListener("pointerdown", (event) => event.preventDefault());
+      if (standaloneResults()) {
+        option.tabIndex = 0;
+        option.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            choose(index);
+          }
+        });
+      } else option.addEventListener("pointerdown", (event) => event.preventDefault());
       option.addEventListener("click", () => choose(index));
       list.append(option);
     }
