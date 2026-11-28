@@ -8,10 +8,10 @@
   <title>Breez | What's the plan?</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css"
         integrity="sha384-mnM9NG1099tBMNxdDQNDKIxYcn/fmqQXFJvbT5l1MsrWvzfxBEffceBsw75/cW2R" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/breez.css?v=21">
+  <link rel="stylesheet" href="/static/breez.css?v=22">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=30"></script>
+  <script type="module" src="/static/home.js?v=31"></script>
 </head>
 <body>
   <header class="site-header">
@@ -162,6 +162,10 @@
       <h2 id="dialog-title"></h2>
       <button class="close" type="button" id="close-dialog" aria-label="Close">×</button>
     </div>
+    <div class="plan-navigation" id="trip-ai-navigation" hidden>
+      <button class="text-button" id="trip-back" type="button">← Back</button>
+      <button class="text-button" id="trip-manual" type="button">Do it manually instead</button>
+    </div>
     <section id="trip-assistant" aria-label="AI trip planning" hidden>
       <div id="trip-assist-question" hidden>
         <p id="trip-assist-prompt" role="status"></p>
@@ -201,7 +205,10 @@
       <h2 id="food-title" tabindex="-1">Order food</h2>
       <button class="close" id="close-food" type="button" aria-label="Close food order">×</button>
     </div>
-    <button class="text-button food-back" id="food-back" type="button" hidden>← Back</button>
+    <div class="plan-navigation" id="food-navigation" hidden>
+      <button class="text-button" id="food-back" type="button">← Back</button>
+      <button class="text-button" id="food-manual" type="button" hidden>Do it manually instead</button>
+    </div>
     <section data-food-step="chains" hidden>
       <p class="form-note" id="food-dropoff"></p>
       <button class="save" id="open-concierge" type="button">Describe your order with AI</button>

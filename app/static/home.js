@@ -1,7 +1,7 @@
 import { createPlaceSearch, isPlace, searchPlaces } from "./places.js?v=10";
 import { floridaPoly, isInFlorida } from "./geography.js?v=1";
 import { startMap } from "./traffic.js?v=8";
-import { createFoodOrder, readFoodMission } from "./food-order.js?v=8";
+import { createFoodOrder, readFoodMission } from "./food-order.js?v=9";
 import { simulateMission } from "./simulation.js?v=3";
 import { findTripPlaces, tripCategoryName } from "./trip-places.js?v=4";
 
@@ -29,6 +29,7 @@ const tripAssistChoices = document.querySelector("#trip-assist-choices");
 const tripAssistLabel = document.querySelector("#trip-assist-label");
 const manualDestination = document.querySelector("#manual-destination");
 const tripModeSwitch = document.querySelector("#switch-trip-mode");
+const tripAiNavigation = document.querySelector("#trip-ai-navigation");
 const tripSearchPanel = document.querySelector("#trip-search");
 const tripPlanActions = document.querySelector("#trip-plan-actions");
 const draftSection = document.querySelector("#drafts");
@@ -142,7 +143,8 @@ function setTripMode(useAI) {
   tripAssistant.hidden = !useAI;
   manualDestination.hidden = useAI;
   planInput.disabled = useAI;
-  tripModeSwitch.textContent = useAI ? "Switch to manual search" : "Use AI instead";
+  tripAiNavigation.hidden = !useAI;
+  tripModeSwitch.hidden = useAI;
   if (selectedDestination) {
     document.querySelector("#destination-status").textContent = selectedDestination.name + " · " + selectedDestination.address;
   }
@@ -150,9 +152,16 @@ function setTripMode(useAI) {
 }
 
 tripModeSwitch.addEventListener("click", () => {
-  const useAI = tripAssistant.hidden;
-  setTripMode(useAI);
-  (useAI ? tripAssistMessage : planInput).focus();
+  setTripMode(true);
+  tripAssistMessage.focus();
+});
+document.querySelector("#trip-manual").addEventListener("click", () => {
+  setTripMode(false);
+  planInput.focus();
+});
+document.querySelector("#trip-back").addEventListener("click", () => {
+  dialog.close();
+  openPlanningModes("trip", true);
 });
 
 function planButton(type) {
@@ -217,18 +226,24 @@ function renderDrafts() {
 
 const planningModeDialog = document.querySelector("#planning-mode-dialog");
 let planToStart;
+let reuseStartingPoint;
+
+function openPlanningModes(type, resume = false) {
+  cancelDraftRestore();
+  planToStart = type;
+  reuseStartingPoint = resume;
+  const delivery = type === "delivery";
+  document.querySelector("#planning-mode-title").textContent = delivery ? "Order food" : "Plan a trip";
+  document.querySelector("#planning-ai-description").textContent = delivery
+    ? "Describe what you’d like" : "Describe your destination";
+  document.querySelector("#planning-manual-description").textContent = delivery
+    ? "Browse restaurants and menus" : "Search by place or address";
+  planningModeDialog.showModal();
+}
 
 for (const button of document.querySelectorAll("[data-plan]")) {
   button.addEventListener("click", () => {
-    cancelDraftRestore();
-    planToStart = button.dataset.plan;
-    const delivery = planToStart === "delivery";
-    document.querySelector("#planning-mode-title").textContent = delivery ? "Order food" : "Plan a trip";
-    document.querySelector("#planning-ai-description").textContent = delivery
-      ? "Describe what you’d like" : "Describe your destination";
-    document.querySelector("#planning-manual-description").textContent = delivery
-      ? "Browse restaurants and menus" : "Search by place or address";
-    planningModeDialog.showModal();
+    openPlanningModes(button.dataset.plan);
   });
 }
 
@@ -236,8 +251,11 @@ document.querySelector("#close-planning-mode").addEventListener("click", () => p
 for (const [id, useAI] of [["choose-ai-plan", true], ["choose-manual-plan", false]]) {
   document.getElementById(id).addEventListener("click", () => {
     planningModeDialog.close();
-    activeDraftId = undefined;
-    askForLocation(planToStart, null, useAI);
+    if (reuseStartingPoint && startingPoint) openPlan(planToStart, undefined, useAI);
+    else {
+      activeDraftId = undefined;
+      askForLocation(planToStart, null, useAI);
+    }
   });
 }
 
@@ -647,6 +665,7 @@ routeChoice.addEventListener("change", () => {
 });
 
 const foodOrder = createFoodOrder({
+  onBackToModes: () => openPlanningModes("delivery", true),
   onRoute: showRoute,
   onSave(mission) {
     const previous = drafts.get(activeDraftId);

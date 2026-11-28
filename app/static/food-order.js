@@ -17,11 +17,13 @@ export function readFoodMission(mission) {
   return validItems ? mission : null;
 }
 
-export function createFoodOrder({ onSave, onRoute }) {
+export function createFoodOrder({ onBackToModes, onSave, onRoute }) {
   const dialog = document.querySelector("#food-dialog");
   const steps = [...dialog.querySelectorAll("[data-food-step]")];
   const title = dialog.querySelector("#food-title");
+  const navigation = dialog.querySelector("#food-navigation");
   const back = dialog.querySelector("#food-back");
+  const manual = dialog.querySelector("#food-manual");
   const restaurantForm = dialog.querySelector("#restaurant-search");
   const query = dialog.querySelector("#restaurant-query");
   const status = dialog.querySelector("#restaurant-status");
@@ -49,13 +51,15 @@ export function createFoodOrder({ onSave, onRoute }) {
   let dropoff;
   let cart;
   let step;
+  let conciergeFromPicker;
   let activeItem;
 
   function show(name, heading) {
     cancelSimulation();
     step = name;
     for (const section of steps) section.hidden = section.dataset.foodStep !== name;
-    back.hidden = name === "chains";
+    navigation.hidden = name === "chains";
+    manual.hidden = name !== "concierge";
     title.textContent = heading;
     title.focus();
   }
@@ -178,14 +182,17 @@ export function createFoodOrder({ onSave, onRoute }) {
     optionList.append(label);
   }
 
-  function showConcierge() {
+  function showConcierge(fromPicker = false) {
+    conciergeFromPicker = fromPicker;
+    conversation = undefined;
     message.value = "";
     conciergeStatus.textContent = "";
     send.disabled = false;
     show("concierge", "Describe your order");
+    message.focus();
   }
 
-  dialog.querySelector("#open-concierge").addEventListener("click", showConcierge);
+  dialog.querySelector("#open-concierge").addEventListener("click", () => showConcierge());
   concierge.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (send.disabled || !message.value.trim()) return;
@@ -204,7 +211,7 @@ export function createFoodOrder({ onSave, onRoute }) {
       if (controller.signal.aborted || !dialog.open) return;
       if (!response.ok) {
         conciergeStatus.textContent = response.status !== 404 && typeof result.detail === "string"
-          ? result.detail : "The concierge is unavailable. Go back to use the menu.";
+          ? result.detail : "The concierge is unavailable. Choose “Do it manually instead” to use the menu.";
         return;
       }
 
@@ -229,14 +236,21 @@ export function createFoodOrder({ onSave, onRoute }) {
       }
       message.focus();
     } catch {
-      if (!controller.signal.aborted) conciergeStatus.textContent = "The concierge is unavailable. Go back to use the menu.";
+      if (!controller.signal.aborted) conciergeStatus.textContent = "The concierge is unavailable. Choose “Do it manually instead” to use the menu.";
     } finally {
       if (inference === controller) send.disabled = false;
     }
   });
 
+  manual.addEventListener("click", () => {
+    inference?.abort();
+    showChains();
+  });
   back.addEventListener("click", () => {
-    if (step === "branches" || step === "concierge") {
+    if (step === "concierge" && conciergeFromPicker) {
+      dialog.close();
+      onBackToModes();
+    } else if (step === "branches" || step === "concierge") {
       request?.abort();
       inference?.abort();
       suggestion = undefined;
@@ -319,10 +333,8 @@ export function createFoodOrder({ onSave, onRoute }) {
       timing.value = mission?.timing ?? "As soon as possible";
       dialog.showModal();
       if (pickup) showCart();
-      else if (useAI) {
-        showConcierge();
-        message.focus();
-      } else showChains();
+      else if (useAI) showConcierge(true);
+      else showChains();
     },
   };
 }
