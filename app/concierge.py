@@ -66,7 +66,7 @@ BRIEFING_SYSTEM = (
     "explain that it avoids the listed boundaries and mention the estimated time if given. "
     "For any route without overlap, specify that this is a horizontal check against a snapshot. "
     "Never imply the route is safe, cleared, or approved for flight, or make the review decision. "
-    "The air traffic display, weather, altitude, and current notices are outside this check. "
+    "Describe only the computed checks. The interface separately lists what Breez did not check. "
     "Return a single plain paragraph with no markdown, in 500 characters or less."
 )
 

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/breez.css?v=18">
   <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js"
           integrity="sha384-7+0QVD3+GoeOjaW35yTmpj0FR1K45ugw4ZUY0qEFomHSmAude6e9nB6/Xy5aPnzQ" crossorigin="anonymous"></script>
-  <script type="module" src="/static/home.js?v=28"></script>
+  <script type="module" src="/static/home.js?v=29"></script>
 </head>
 <body>
   <header class="site-header">
@@ -69,6 +69,7 @@
           <h3 id="briefing-title">AI briefing</h3>
           <button class="text-button route-review-button" id="request-briefing" type="button"><span aria-hidden="true">✦</span> Explain this route</button>
           <p class="form-note" id="briefing-text" role="status"></p>
+          <p class="form-note"><strong>Not checked:</strong> live aircraft conflicts, weather, flight altitude, and current FAA notices.</p>
         </section>
         <section class="route-step" aria-labelledby="review-title">
           <h3 id="review-title">Human review</h3>
@@ -87,7 +88,7 @@
       </dl>
       <p class="form-note" id="route-finding" hidden></p>
       <p class="form-note" id="route-assumptions"></p>
-      <p class="form-note route-source"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Simulation only. Detours avoid listed FAA areas in two dimensions. Weather, aircraft traffic, and current flight restrictions are outside this check.</p>
+      <p class="form-note route-source"><a href="https://udds-faa.opendata.arcgis.com/">FAA airspace snapshot</a><span id="route-source-date"></span>. Simulation only. Breez checks horizontal overlap with the listed FAA areas.</p>
     </section>
     <section class="traffic" aria-labelledby="traffic-title">
       <div class="map" id="traffic-map" aria-label="Interactive air traffic map centered on Lakeland"></div>
